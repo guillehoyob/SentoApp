@@ -28,7 +28,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "supabaseUrl": "https://iybjzqtiispacfmmynsx.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5Ymp6cXRpaXNwYWNmbW15bnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMDczNDMsImV4cCI6MjA3NzU4MzM0M30.xxtALe4iH1bVQkmCxKrRXaWASbsFaDoCLBS0Os9J9V0"
+    }
   }
 }
