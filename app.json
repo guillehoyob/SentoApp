@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "app_composer",
+    "name": "Sento",
     "slug": "app_composer",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "sento",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -25,6 +26,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }
