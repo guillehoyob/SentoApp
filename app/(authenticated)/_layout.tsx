@@ -29,6 +29,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="groups" />
       <Stack.Screen name="create-group" />
       <Stack.Screen name="group-detail" />
+      <Stack.Screen name="join" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

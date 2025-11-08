@@ -5,6 +5,18 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "sento",
+    "intentFilters": [
+      {
+        "action": "VIEW",
+        "data": [
+          {
+            "scheme": "sento",
+            "host": "invite"
+          }
+        ],
+        "category": ["BROWSABLE", "DEFAULT"]
+      }
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,

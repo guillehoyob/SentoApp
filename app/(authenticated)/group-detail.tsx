@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useGroup } from '../../src/hooks/useGroup';
 import { Button } from '../../src/components/Button';
 import { TextInputComponent } from '../../src/components/TextInput';
+import { ShareInviteModal } from '../../src/components/ShareInviteModal';
 
 export default function GroupDetailScreen() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function GroupDetailScreen() {
   const [destination, setDestination] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     if (group) {
@@ -106,30 +108,39 @@ export default function GroupDetailScreen() {
           <Text className="font-body-medium text-base text-primary">← Volver</Text>
         </TouchableOpacity>
         <View className="flex-row justify-between items-center">
-          <View className="flex-1">
-            <View className="flex-row items-center mb-xs">
-              <Text className="text-[32px] mr-sm">
-                {group.type === 'trip' ? '✈️' : '👥'}
-              </Text>
-              <Text className="font-display text-[28px] text-text-primary flex-1 leading-[36px]">
-                {isEditing ? 'Editar' : group.name}
-              </Text>
-            </View>
-            {!isEditing && group.destination && (
-              <Text className="font-body text-sm text-neutral-500">
-                📍 {group.destination}
-              </Text>
-            )}
-          </View>
-          {!isEditing && (
-            <TouchableOpacity 
-              onPress={() => setIsEditing(true)}
-              className="bg-primary/10 px-md py-sm rounded-lg ml-md"
-              activeOpacity={0.7}
-            >
-              <Text className="font-body-medium text-sm text-primary">✏️ Editar</Text>
-            </TouchableOpacity>
-          )}
+              <View className="flex-1">
+                  <View className="flex-row items-center mb-xs">
+                    <Text className="text-[32px] mr-sm">
+                      {group.type === 'trip' ? '✈️' : '👥'}
+                    </Text>
+                    <Text className="font-display text-[28px] text-text-primary flex-1 leading-[36px]">
+                      {isEditing ? 'Editar' : group.name}
+                    </Text>
+                  </View>
+                  {!isEditing && group.destination && (
+                    <Text className="font-body text-sm text-neutral-500">
+                      📍 {group.destination}
+                    </Text>
+                  )}
+                </View>
+                {!isEditing && (
+                  <View className="flex-row gap-sm">
+                    <TouchableOpacity
+                      onPress={() => setShowInviteModal(true)}
+                      className="bg-primary px-md py-sm rounded-lg"
+                      activeOpacity={0.7}
+                    >
+                      <Text className="font-body-medium text-sm text-white">👥 Invitar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setIsEditing(true)}
+                      className="bg-primary/10 px-md py-sm rounded-lg"
+                      activeOpacity={0.7}
+                    >
+                      <Text className="font-body-medium text-sm text-primary">✏️ Editar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
         </View>
       </View>
 
@@ -300,7 +311,15 @@ export default function GroupDetailScreen() {
             variant="danger"
           />
         </View>
-      </ScrollView>
-    </View>
-  );
-}
+            </ScrollView>
+
+            {/* Modal de invitación */}
+            <ShareInviteModal
+              groupId={id || ''}
+              groupName={group.name}
+              visible={showInviteModal}
+              onClose={() => setShowInviteModal(false)}
+            />
+          </View>
+        );
+      }
