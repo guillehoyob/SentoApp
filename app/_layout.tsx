@@ -3,6 +3,12 @@ import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../src/hooks/useAuth';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFonts } from 'expo-font';
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_700Bold,
+  PlayfairDisplay_700Bold_Italic,
+} from '@expo-google-fonts/playfair-display';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -45,6 +51,26 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    'PlayfairDisplay-Regular': PlayfairDisplay_400Regular,
+    'PlayfairDisplay-Bold': PlayfairDisplay_700Bold,
+    'PlayfairDisplay-BoldItalic': PlayfairDisplay_700Bold_Italic,
+    'GeneralSans-Light': require('../assets/fonts/GeneralSans-Light.ttf'),
+    'GeneralSans-Regular': require('../assets/fonts/GeneralSans-Regular.ttf'),
+    'GeneralSans-Medium': require('../assets/fonts/GeneralSans-Medium.ttf'),
+    'GeneralSans-Semibold': require('../assets/fonts/GeneralSans-Semibold.ttf'),
+    'GeneralSans-Italic': require('../assets/fonts/GeneralSans-Italic.ttf'),
+    'GeneralSans-SemiboldItalic': require('../assets/fonts/GeneralSans-SemiboldItalic.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF5050" />
+      </View>
+    );
+  }
+
   return <RootLayoutNav />;
 }
 

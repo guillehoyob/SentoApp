@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGroups } from '../../src/hooks/useGroups';
 import { Button } from '../../src/components/Button';
@@ -37,7 +37,6 @@ export default function CreateGroupScreen() {
       return;
     }
 
-    // Validar formato de fecha (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(startDate)) {
       setError('Formato de fecha de inicio inválido (usar YYYY-MM-DD)');
@@ -60,10 +59,8 @@ export default function CreateGroupScreen() {
         notes: notes.trim() || undefined,
       });
 
-      // Navegar de vuelta y refrescar la lista
       router.back();
       
-      // Mostrar mensaje de éxito después de navegar
       setTimeout(() => {
         Alert.alert('Éxito', `${type === 'trip' ? 'Viaje' : 'Grupo'} creado correctamente`);
       }, 300);
@@ -75,34 +72,65 @@ export default function CreateGroupScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Volver</Text>
+    <View className="flex-1 bg-background">
+      <View className="bg-card pt-[50px] pb-lg px-lg border-b border-neutral-100">
+        <TouchableOpacity 
+          onPress={() => router.back()}
+          className="mb-md"
+          activeOpacity={0.7}
+        >
+          <Text className="font-body-medium text-base text-primary">← Volver</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Crear Grupo/Viaje</Text>
+        <Text className="font-display text-[32px] text-text-primary leading-[40px] mb-xs">
+          Nuevo {type === 'trip' ? 'Viaje' : 'Grupo'}
+        </Text>
+        <Text className="font-body text-base text-neutral-600">
+          Completa la información básica
+        </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
         <ErrorMessage message={error} />
 
-        <View style={styles.typeSelector}>
-          <TouchableOpacity
-            style={[styles.typeButton, type === 'trip' && styles.typeButtonActive]}
-            onPress={() => setType('trip')}
-          >
-            <Text style={[styles.typeButtonText, type === 'trip' && styles.typeButtonTextActive]}>
-              ✈️ Viaje
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.typeButton, type === 'group' && styles.typeButtonActive]}
-            onPress={() => setType('group')}
-          >
-            <Text style={[styles.typeButtonText, type === 'group' && styles.typeButtonTextActive]}>
-              👥 Grupo
-            </Text>
-          </TouchableOpacity>
+        {/* Selector de tipo mejorado */}
+        <View className="mb-xl">
+          <Text className="font-body-semibold text-base text-neutral-900 mb-md">
+            Tipo de grupo
+          </Text>
+          <View className="flex-row gap-md">
+            <TouchableOpacity
+              className={`flex-1 py-lg rounded-2xl border-2 ${
+                type === 'trip' 
+                  ? 'bg-primary border-primary' 
+                  : 'bg-white border-neutral-200'
+              }`}
+              onPress={() => setType('trip')}
+              activeOpacity={0.8}
+            >
+              <Text className="text-[32px] text-center mb-xs">✈️</Text>
+              <Text className={`font-body-semibold text-base text-center ${
+                type === 'trip' ? 'text-white' : 'text-neutral-700'
+              }`}>
+                Viaje
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`flex-1 py-lg rounded-2xl border-2 ${
+                type === 'group' 
+                  ? 'bg-primary border-primary' 
+                  : 'bg-white border-neutral-200'
+              }`}
+              onPress={() => setType('group')}
+              activeOpacity={0.8}
+            >
+              <Text className="text-[32px] text-center mb-xs">👥</Text>
+              <Text className={`font-body-semibold text-base text-center ${
+                type === 'group' ? 'text-white' : 'text-neutral-700'
+              }`}>
+                Grupo
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <TextInputComponent
@@ -147,69 +175,9 @@ export default function CreateGroupScreen() {
           title={`Crear ${type === 'trip' ? 'Viaje' : 'Grupo'}`}
           onPress={handleCreate}
           loading={loading}
-          style={styles.createButton}
+          className="mt-md"
         />
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8F8',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-  },
-  content: {
-    padding: 20,
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 12,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-  },
-  typeButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
-  },
-  typeButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-  },
-  typeButtonTextActive: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  createButton: {
-    marginTop: 20,
-  },
-});
-

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useGroup } from '../../src/hooks/useGroup';
 import { Button } from '../../src/components/Button';
@@ -78,54 +78,78 @@ export default function GroupDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+      <View className="flex-1 bg-background justify-center items-center">
+        <ActivityIndicator size="large" color="#FF5050" />
       </View>
     );
   }
 
   if (!group) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Grupo no encontrado</Text>
+      <View className="flex-1 bg-background justify-center items-center p-lg">
+        <Text className="font-body-semibold text-lg text-danger mb-lg">
+          Grupo no encontrado
+        </Text>
         <Button title="Volver" onPress={() => router.back()} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Volver</Text>
+    <View className="flex-1 bg-background">
+      <View className="bg-card pt-[50px] pb-lg px-lg border-b border-neutral-100">
+        <TouchableOpacity 
+          onPress={() => router.back()}
+          className="mb-md"
+          activeOpacity={0.7}
+        >
+          <Text className="font-body-medium text-base text-primary">← Volver</Text>
         </TouchableOpacity>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>
-            {group.type === 'trip' ? '✈️ Viaje' : '👥 Grupo'}
-          </Text>
+        <View className="flex-row justify-between items-center">
+          <View className="flex-1">
+            <View className="flex-row items-center mb-xs">
+              <Text className="text-[32px] mr-sm">
+                {group.type === 'trip' ? '✈️' : '👥'}
+              </Text>
+              <Text className="font-display text-[28px] text-text-primary flex-1 leading-[36px]">
+                {isEditing ? 'Editar' : group.name}
+              </Text>
+            </View>
+            {!isEditing && group.destination && (
+              <Text className="font-body text-sm text-neutral-500">
+                📍 {group.destination}
+              </Text>
+            )}
+          </View>
           {!isEditing && (
-            <TouchableOpacity onPress={() => setIsEditing(true)}>
-              <Text style={styles.editButton}>✏️ Editar</Text>
+            <TouchableOpacity 
+              onPress={() => setIsEditing(true)}
+              className="bg-primary/10 px-md py-sm rounded-lg ml-md"
+              activeOpacity={0.7}
+            >
+              <Text className="font-body-medium text-sm text-primary">✏️ Editar</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View className="bg-danger/10 p-md rounded-lg mb-md">
+            <Text className="font-body text-base text-danger">{error}</Text>
           </View>
         )}
 
         {expired && (
-          <View style={styles.expiredBanner}>
-            <Text style={styles.expiredBannerText}>⏰ Este viaje ha finalizado</Text>
+          <View className="bg-warning/20 p-md rounded-lg mb-md border-l-4 border-warning">
+            <Text className="font-body-semibold text-base text-warning">
+              ⏰ Este viaje ha finalizado
+            </Text>
           </View>
         )}
 
         {isEditing ? (
-          <View style={styles.form}>
+          <View>
             <TextInputComponent
               label="Nombre *"
               value={name}
@@ -159,208 +183,124 @@ export default function GroupDetailScreen() {
               multiline
             />
 
-            <View style={styles.buttonRow}>
-              <Button
-                title="Cancelar"
-                onPress={() => {
-                  setIsEditing(false);
-                  // Restaurar valores originales
-                  if (group) {
-                    setName(group.name);
-                    setStartDate(group.start_date);
-                    setEndDate(group.end_date || '');
-                    setDestination(group.destination || '');
-                    setNotes(group.notes || '');
-                  }
-                }}
-                variant="secondary"
-                style={styles.buttonHalf}
-              />
-              <Button
-                title="Guardar"
-                onPress={handleSave}
-                loading={saving}
-                style={styles.buttonHalf}
-              />
+            <View className="flex-row gap-sm">
+              <View className="flex-1">
+                <Button
+                  title="Cancelar"
+                  onPress={() => {
+                    setIsEditing(false);
+                    if (group) {
+                      setName(group.name);
+                      setStartDate(group.start_date);
+                      setEndDate(group.end_date || '');
+                      setDestination(group.destination || '');
+                      setNotes(group.notes || '');
+                    }
+                  }}
+                  variant="secondary"
+                />
+              </View>
+              <View className="flex-1">
+                <Button
+                  title="Guardar"
+                  onPress={handleSave}
+                  loading={saving}
+                />
+              </View>
             </View>
           </View>
         ) : (
-          <View style={styles.details}>
-            <View style={styles.detailCard}>
-              <Text style={styles.detailLabel}>Nombre</Text>
-              <Text style={styles.detailValue}>{group.name}</Text>
-            </View>
-
-            {group.destination && (
-              <View style={styles.detailCard}>
-                <Text style={styles.detailLabel}>📍 Destino</Text>
-                <Text style={styles.detailValue}>{group.destination}</Text>
+          <View className="gap-md">
+            {/* Card principal con info */}
+            <View className="bg-card rounded-2xl p-lg shadow-md">
+              <View className="mb-lg">
+                <Text className="font-body-medium text-sm text-neutral-500 mb-xs">Nombre del {group.type === 'trip' ? 'viaje' : 'grupo'}</Text>
+                <Text className="font-body-semibold text-xl text-text-primary">{group.name}</Text>
               </View>
-            )}
 
-            <View style={styles.detailCard}>
-              <Text style={styles.detailLabel}>📅 Fechas</Text>
-              <Text style={styles.detailValue}>
-                Inicio: {new Date(group.start_date).toLocaleDateString()}
-              </Text>
-              {group.end_date && (
-                <Text style={styles.detailValue}>
-                  Fin: {new Date(group.end_date).toLocaleDateString()}
-                </Text>
-              )}
-            </View>
-
-            {group.notes && (
-              <View style={styles.detailCard}>
-                <Text style={styles.detailLabel}>📝 Notas</Text>
-                <Text style={styles.detailValue}>{group.notes}</Text>
-              </View>
-            )}
-
-            {group.members && group.members.length > 0 && (
-              <View style={styles.detailCard}>
-                <Text style={styles.detailLabel}>👥 Miembros ({group.members.length})</Text>
-                {group.members.map((member) => (
-                  <View key={member.user_id} style={styles.memberRow}>
-                    <Text style={styles.memberName}>
-                      {member.user?.full_name || member.user?.email || 'Usuario'}
-                    </Text>
-                    <Text style={styles.memberRole}>
-                      {member.role === 'owner' ? '👑 Admin' : '👤 Miembro'}
+              {group.destination && (
+                <View className="mb-lg">
+                  <Text className="font-body-medium text-sm text-neutral-500 mb-xs">Destino</Text>
+                  <View className="flex-row items-center">
+                    <Text className="text-lg mr-sm">📍</Text>
+                    <Text className="font-body-semibold text-lg text-text-primary flex-1">
+                      {group.destination}
                     </Text>
                   </View>
-                ))}
+                </View>
+              )}
+
+              <View>
+                <Text className="font-body-medium text-sm text-neutral-500 mb-xs">Fechas</Text>
+                <View className="flex-row items-center mb-xs">
+                  <Text className="text-base mr-sm">📅</Text>
+                  <Text className="font-body text-base text-neutral-700">
+                    {new Date(group.start_date).toLocaleDateString('es-ES', { 
+                      day: 'numeric', 
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                </View>
+                {group.end_date && (
+                  <View className="flex-row items-center">
+                    <Text className="text-base mr-sm">🏁</Text>
+                    <Text className="font-body text-base text-neutral-700">
+                      {new Date(group.end_date).toLocaleDateString('es-ES', { 
+                        day: 'numeric', 
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Card de miembros */}
+            {group.members && (
+              <View className="bg-primary/10 rounded-2xl p-lg border-2 border-primary/20">
+                <View className="flex-row items-center justify-between">
+                  <View>
+                    <Text className="font-body-medium text-sm text-primary/70 mb-xs">Participantes</Text>
+                    <Text className="font-body-semibold text-2xl text-primary">
+                      {group.members.length}
+                    </Text>
+                  </View>
+                  <Text className="text-[48px]">👥</Text>
+                </View>
+                <Text className="font-body text-sm text-primary/70 mt-xs">
+                  miembro{group.members.length !== 1 ? 's' : ''} en el grupo
+                </Text>
               </View>
             )}
 
-            <Button
-              title="Eliminar Grupo"
-              onPress={handleDelete}
-              variant="danger"
-              style={styles.deleteButton}
-            />
+            {/* Card de notas */}
+            {group.notes && (
+              <View className="bg-card rounded-2xl p-lg shadow-md">
+                <Text className="font-body-medium text-sm text-neutral-500 mb-md">Notas</Text>
+                <Text className="font-body text-base text-neutral-700 leading-6">
+                  {group.notes}
+                </Text>
+              </View>
+            )}
           </View>
         )}
+
+        {/* Botón eliminar */}
+        <View className="mt-3xl">
+          <View className="bg-danger/5 rounded-2xl p-md mb-md">
+            <Text className="font-body text-sm text-neutral-600 text-center">
+              ⚠️ Esta acción no se puede deshacer
+            </Text>
+          </View>
+          <Button
+            title="Eliminar grupo"
+            onPress={handleDelete}
+            variant="danger"
+          />
+        </View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8F8',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-  },
-  editButton: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  content: {
-    padding: 20,
-  },
-  loader: {
-    marginTop: 100,
-  },
-  errorContainer: {
-    backgroundColor: '#FFE5E5',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#D32F2F',
-    fontSize: 14,
-  },
-  expiredBanner: {
-    backgroundColor: '#FFF3E0',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  expiredBannerText: {
-    color: '#FF9800',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  form: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  buttonHalf: {
-    flex: 1,
-  },
-  details: {
-    gap: 12,
-  },
-  detailCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#999',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  detailValue: {
-    fontSize: 16,
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  memberRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    marginTop: 4,
-  },
-  memberName: {
-    fontSize: 14,
-    color: '#1A1A1A',
-  },
-  memberRole: {
-    fontSize: 12,
-    color: '#666',
-  },
-  deleteButton: {
-    marginTop: 20,
-  },
-});
-

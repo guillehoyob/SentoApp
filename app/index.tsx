@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../src/hooks/useAuth';
 import { Button } from '../src/components/Button';
@@ -6,82 +6,47 @@ import { Button } from '../src/components/Button';
 export default function WelcomeScreen() {
   const { loading } = useAuth();
 
-  // La redirección se maneja en _layout.tsx para evitar loops
-  // Solo mostrar loading mientras se verifica el estado
-
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View className="flex-1 bg-background justify-center items-center">
+        <ActivityIndicator size="large" color="#FF5050" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.logo}>Sento</Text>
-        <Text style={styles.tagline}>Tu app de viajes</Text>
+    <View className="flex-1 bg-background justify-center items-center px-lg">
+      <View className="w-full max-w-[420px] items-center">
+        {/* Logo/Título */}
+        <View className="mb-3xl items-center">
+          <Text className="font-display text-[64px] text-primary mb-md leading-[72px]">
+            Sento
+          </Text>
+          <Text className="font-body text-lg text-neutral-600 text-center">
+            Organiza tus viajes y grupos{'\n'}de forma sencilla
+          </Text>
+        </View>
 
-        <View style={styles.buttons}>
+        {/* Card con botones */}
+        <View className="w-full bg-card rounded-2xl p-xl shadow-xl">
           <Button
             title="Iniciar Sesión"
             onPress={() => router.push('/auth/sign-in')}
-            style={styles.button}
           />
           <Button
-            title="Registrarse"
+            title="Crear cuenta"
             onPress={() => router.push('/auth/sign-up')}
             variant="secondary"
-            style={styles.button}
           />
+          
+          <Text className="font-body text-sm text-neutral-400 text-center mt-lg">
+            Comienza tu próxima aventura
+          </Text>
         </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8F8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  content: {
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logo: {
-    fontSize: 56,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 12,
-    letterSpacing: -1,
-  },
-  tagline: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 48,
-    fontWeight: '300',
-  },
-  buttons: {
-    width: '100%',
-  },
-  button: {
-    marginBottom: 12,
-  },
-});
 
 
 

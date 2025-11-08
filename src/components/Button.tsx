@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 
 interface ButtonProps {
   title: string;
@@ -6,69 +6,41 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
-  style?: ViewStyle;
+  className?: string;
 }
 
-export function Button({ title, onPress, loading = false, disabled = false, variant = 'primary', style }: ButtonProps) {
+export function Button({ title, onPress, loading = false, disabled = false, variant = 'primary', className = '' }: ButtonProps) {
   const isDisabled = loading || disabled;
+
+  const baseClasses = 'h-[56px] rounded-xl justify-center items-center mb-md';
+  
+  const variantClasses = {
+    primary: 'bg-primary shadow-lg',
+    secondary: 'bg-white border-2 border-primary shadow-md',
+    danger: 'bg-danger shadow-lg',
+  };
+
+  const textVariantClasses = {
+    primary: 'text-white',
+    secondary: 'text-primary',
+    danger: 'text-white',
+  };
 
   return (
     <TouchableOpacity
-      style={[
-        styles.button,
-        styles[variant],
-        isDisabled && styles.disabled,
-        style,
-      ]}
+      className={`${baseClasses} ${variantClasses[variant]} ${isDisabled ? 'opacity-50' : ''} ${className}`}
       onPress={onPress}
       disabled={isDisabled}
+      activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'secondary' ? '#007AFF' : '#fff'} />
+        <ActivityIndicator color={variant === 'secondary' ? '#FF5050' : '#fff'} />
       ) : (
-        <Text style={[styles.buttonText, variant === 'secondary' && styles.secondaryText]}>
+        <Text className={`font-body-semibold text-lg ${textVariantClasses[variant]}`}>
           {title}
         </Text>
       )}
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    height: 52,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  primary: {
-    backgroundColor: '#007AFF',
-  },
-  secondary: {
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-  },
-  danger: {
-    backgroundColor: '#FF3B30',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  secondaryText: {
-    color: '#1A1A1A',
-  },
-});
 
