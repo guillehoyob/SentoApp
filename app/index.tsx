@@ -1,78 +1,88 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '../src/hooks/useAuth';
+import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { useAuth } from '../src/hooks/useAuth';
+import { Button } from '../src/components/Button';
 
-export default function HomeScreen() {
-  const { user, signOut } = useAuth();
+export default function WelcomeScreen() {
+  const { loading } = useAuth();
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace('/auth/login');
-  };
+  // La redirección se maneja en _layout.tsx para evitar loops
+  // Solo mostrar loading mientras se verifica el estado
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Hola sentoide!!</Text>
-      
-      {user && (
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user.full_name || user.email}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-        </View>
-      )}
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.logo}>Sento</Text>
+        <Text style={styles.tagline}>Tu app de viajes</Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleSignOut}>
-        <Text style={styles.buttonText}>Cerrar Sesión</Text>
-      </TouchableOpacity>
-      
-      <StatusBar style="auto" />
-    </ScrollView>
+        <View style={styles.buttons}>
+          <Button
+            title="Iniciar Sesión"
+            onPress={() => router.push('/auth/sign-in')}
+            style={styles.button}
+          />
+          <Button
+            title="Registrarse"
+            onPress={() => router.push('/auth/sign-up')}
+            variant="secondary"
+            style={styles.button}
+          />
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
     justifyContent: 'center',
-    padding: 20,
-    minHeight: '100%',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    color: '#333',
-  },
-  userInfo: {
-    marginBottom: 30,
     alignItems: 'center',
+    padding: 20,
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+  content: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  userEmail: {
-    fontSize: 16,
+  logo: {
+    fontSize: 56,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 12,
+    letterSpacing: -1,
+  },
+  tagline: {
+    fontSize: 18,
     color: '#666',
+    marginBottom: 48,
+    fontWeight: '300',
+  },
+  buttons: {
+    width: '100%',
   },
   button: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: 12,
   },
 });
+
 
 
 

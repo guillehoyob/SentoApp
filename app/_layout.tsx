@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../src/hooks/useAuth';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -11,22 +12,34 @@ function RootLayoutNav() {
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0] === 'auth';
-    const isCallback = segments.length > 1 && (segments as string[])[1] === 'callback';
-
-    if (!user && !inAuthGroup) {
-      router.replace('/auth/login');
-    } else if (user && inAuthGroup && !isCallback) {
-      router.replace('/');
+    const inAuthGroup = segments[0] === '(authenticated)';
+    
+    // Si no está autenticado pero intenta acceder a rutas protegidas
+    if (!user && inAuthGroup) {
+      router.replace('/auth/sign-in');
     }
-  }, [user, loading, segments, router]);
+    
+    // Si está autenticado pero en páginas públicas
+    if (user && segments[0] === 'auth') {
+      router.push('/(authenticated)/home');
+    }
+  }, [user, loading, segments]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: 'Sento', headerShown: false }} />
-      <Stack.Screen name="auth/login" options={{ title: 'Iniciar Sesión', headerShown: false }} />
-      <Stack.Screen name="auth/register" options={{ title: 'Registrarse', headerShown: false }} />
-      <Stack.Screen name="auth/callback" options={{ title: 'Cargando...', headerShown: false }} />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="auth/sign-in" />
+      <Stack.Screen name="auth/sign-up" />
+      <Stack.Screen name="auth/callback" />
+      <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -34,4 +47,13 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return <RootLayoutNav />;
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+  },
+});
 
