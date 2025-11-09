@@ -87,20 +87,35 @@ const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
 
 ## 🔐 ROADMAP: SISTEMA DE DOCUMENTOS
 
-### **Fase 8 (AHORA): Vault Seguro (B+)** ⏱️ 6-7 días
-**Objetivo:** MVP serio con seguridad suficiente para GDPR básico
+### **Fase 8 (AHORA): Vault Inteligente (B++)** ⏱️ 7-8 días
+**Objetivo:** Sistema de permisos flexible con contexto de viaje y solicitudes
 
+#### **Permisos Inteligentes:**
 - [ ] Documentos personales del usuario (vault privado)
-- [ ] Compartir con grupos (control manual)
+- [ ] **5 tipos de permisos** ⭐ NUEVO
+  - [ ] Permanente (siempre visible)
+  - [ ] Ligado al viaje (start_date → end_date automático)
+  - [ ] Temporal (X días personalizados)
+  - [ ] Manual (hasta que el dueño oculte)
+  - [ ] Programado (desde fecha X hasta Y)
+- [ ] **Activación automática** según contexto del viaje ⭐ NUEVO
+- [ ] Diferenciación viajes vs grupos (lógica distinta)
+
+#### **Sistema de Solicitudes:**
+- [ ] **Solicitar acceso** a docs ocultos/expirados ⭐ NUEVO
+- [ ] **Aprobar/Rechazar** solicitudes con condiciones ⭐ NUEVO
+- [ ] Notificaciones de solicitudes pendientes ⭐ NUEVO
+- [ ] Historial de solicitudes en auditoría
+
+#### **Seguridad & Auditoría:**
 - [ ] Auditoría mejorada (quién, qué, cuándo, desde dónde)
-- [ ] **Permisos temporales** (expires_at en shares) ⭐ NUEVO
-- [ ] **Rate limiting** (máx 10 accesos/minuto por usuario) ⭐ NUEVO
-- [ ] **Log de intentos fallidos** (seguridad + compliance) ⭐ NUEVO
-- [ ] Ocultar/mostrar documentos por grupo
+- [ ] **Rate limiting** (máx 10 accesos/minuto por usuario)
+- [ ] **Log de intentos fallidos** (seguridad + compliance)
+- [ ] **Log de solicitudes** (quién pidió qué, aprobadas/rechazadas)
 - [ ] Storage privado con RLS robusto
 - [ ] Metadata de accesos (IP, user agent) para auditoría
 
-**Estado:** Suficiente para desarrollo y beta testers. GDPR básico ✓
+**Estado:** Sistema completo para producción. GDPR básico ✓✓
 
 ---
 
