@@ -93,6 +93,23 @@ export default function HomeScreen() {
               Organiza un nuevo viaje o grupo
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            className="bg-secondary rounded-2xl p-xl shadow-lg border-2 border-secondary/30"
+            onPress={() => router.push('/(authenticated)/vault')}
+            activeOpacity={0.8}
+          >
+            <View className="flex-row items-center mb-sm">
+              <Text className="text-[32px] mr-md">🔐</Text>
+              <Text className="font-body-semibold text-xl text-white flex-1">
+                Mi Vault
+              </Text>
+              <Text className="text-white text-xl">→</Text>
+            </View>
+            <Text className="font-body text-base text-white/90">
+              Gestiona tus documentos personales
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Info adicional */}
