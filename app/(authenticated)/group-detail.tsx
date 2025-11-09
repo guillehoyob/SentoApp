@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react';
 import { Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useGroup } from '../../src/hooks/useGroup';
+import { useGroupDocuments } from '../../src/hooks/useGroupDocuments';
 import { Button } from '../../src/components/Button';
 import { TextInputComponent } from '../../src/components/TextInput';
 import { ShareInviteModal } from '../../src/components/ShareInviteModal';
+import { getDocumentTypeLabel, formatFileSize, daysUntilExpiration } from '../../src/services/documents.service';
 
 export default function GroupDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { group, loading, error, expired, updateGroup, deleteGroup } = useGroup(id || '');
+  const { documents: groupDocuments, loading: loadingDocs } = useGroupDocuments(id || '');
   
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -285,6 +288,85 @@ export default function GroupDetailScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Card de documentos compartidos */}
+            <View className="bg-card rounded-2xl p-lg shadow-md">
+              <View className="flex-row items-center justify-between mb-md">
+                <View>
+                  <Text className="font-body-medium text-sm text-neutral-500 mb-xs">Documentos Compartidos</Text>
+                  <Text className="font-body-semibold text-xl text-text-primary">
+                    {groupDocuments?.length || 0}
+                  </Text>
+                </View>
+                <Text className="text-[32px]">📄</Text>
+              </View>
+              
+              {loadingDocs ? (
+                <ActivityIndicator color="#FF5050" className="my-md" />
+              ) : groupDocuments && groupDocuments.length > 0 ? (
+                <View className="gap-sm">
+                  {groupDocuments.map((doc) => {
+                    const daysLeft = daysUntilExpiration(doc.expires_at);
+                    const canAccess = doc.can_access && (daysLeft === null || daysLeft > 0);
+                    
+                    return (
+                      <View 
+                        key={doc.id}
+                        className="bg-neutral-50 p-md rounded-lg border border-neutral-200"
+                      >
+                        <View className="flex-row items-start justify-between mb-xs">
+                          <View className="flex-1 mr-sm">
+                            <View className="flex-row items-center mb-1">
+                              <Text className="text-base mr-1">
+                                {doc.type === 'passport' ? '🛂' : 
+                                 doc.type === 'id_card' ? '🪪' : 
+                                 doc.type === 'insurance' ? '🏥' : 
+                                 doc.type === 'license' ? '🚗' : '📄'}
+                              </Text>
+                              <Text className="font-body-semibold text-sm text-neutral-900 flex-1">
+                                {doc.title}
+                              </Text>
+                            </View>
+                            <Text className="font-body text-xs text-neutral-600">
+                              {doc.owner.full_name || doc.owner.email}
+                            </Text>
+                            <Text className="font-body text-xs text-neutral-500">
+                              {getDocumentTypeLabel(doc.type)} • {formatFileSize(doc.size_bytes)}
+                            </Text>
+                          </View>
+                          <View className={`px-2 py-1 rounded ${canAccess ? 'bg-green-100' : 'bg-neutral-200'}`}>
+                            <Text className={`text-xs font-semibold ${canAccess ? 'text-green-700' : 'text-neutral-600'}`}>
+                              {canAccess ? '✓ Visible' : '🔒 Oculto'}
+                            </Text>
+                          </View>
+                        </View>
+                        {daysLeft !== null && daysLeft > 0 && (
+                          <Text className="font-body text-xs text-neutral-500">
+                            ⏳ Expira en {daysLeft} día{daysLeft !== 1 ? 's' : ''}
+                          </Text>
+                        )}
+                        {!canAccess && (
+                          <TouchableOpacity
+                            onPress={() => Alert.alert('Solicitar acceso', 'Función en desarrollo')}
+                            className="mt-sm bg-primary-100 py-2 rounded items-center"
+                          >
+                            <Text className="font-body-medium text-xs text-primary-700">
+                              Solicitar acceso
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View className="py-md">
+                  <Text className="font-body text-sm text-neutral-600 text-center">
+                    No hay documentos compartidos en este grupo
+                  </Text>
+                </View>
+              )}
+            </View>
 
             {/* Card de notas */}
             {group.notes && (
