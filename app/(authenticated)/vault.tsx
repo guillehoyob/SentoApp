@@ -17,6 +17,8 @@ import { useDocuments } from '../../src/hooks/useDocuments';
 import { useAccessRequests } from '../../src/hooks/useAccessRequests';
 import { Button } from '../../src/components/Button';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
+import { UploadDocumentModal } from '../../src/components/UploadDocumentModal';
+import { ShareDocumentModal } from '../../src/components/ShareDocumentModal';
 import {
   getDocumentTypeLabel,
   getShareTypeLabel,
@@ -25,9 +27,12 @@ import {
 } from '../../src/services/documents.service';
 
 export default function VaultScreen() {
-  const { documents, loading, error, refreshing, refresh } = useDocuments();
+  const { documents, loading, error, refreshing, refresh, reload } = useDocuments();
   const { requests, pendingCount } = useAccessRequests();
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [selectedDocForShare, setSelectedDocForShare] = useState<{ id: string; title: string } | null>(null);
 
   if (loading && !refreshing) {
     return (
@@ -106,7 +111,7 @@ export default function VaultScreen() {
             </Text>
             <Button
               title="Subir primer documento"
-              onPress={() => Alert.alert('Próximamente', 'Función en desarrollo')}
+              onPress={() => setUploadModalVisible(true)}
             />
           </View>
         ) : (
@@ -212,9 +217,10 @@ export default function VaultScreen() {
                       {/* Acciones */}
                       <View className="flex-row space-x-2">
                         <TouchableOpacity
-                          onPress={() =>
-                            Alert.alert('Próximamente', 'Función en desarrollo')
-                          }
+                          onPress={() => {
+                            setSelectedDocForShare({ id: doc.id, title: doc.title });
+                            setShareModalVisible(true);
+                          }}
                           className="flex-1 bg-primary-500 py-3 rounded-lg items-center"
                         >
                           <Text className="text-white font-semibold">Compartir</Text>
@@ -240,7 +246,7 @@ export default function VaultScreen() {
       {/* Botón flotante para subir */}
       <View className="absolute bottom-6 right-6">
         <TouchableOpacity
-          onPress={() => Alert.alert('Próximamente', 'Función en desarrollo')}
+          onPress={() => setUploadModalVisible(true)}
           className="w-16 h-16 bg-primary-500 rounded-full items-center justify-center shadow-lg"
           style={{
             shadowColor: '#000',
@@ -253,6 +259,27 @@ export default function VaultScreen() {
           <Text className="text-3xl text-white">+</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal de upload */}
+      <UploadDocumentModal
+        visible={uploadModalVisible}
+        onClose={() => setUploadModalVisible(false)}
+        onSuccess={() => reload()}
+      />
+
+      {/* Modal de compartir */}
+      {selectedDocForShare && (
+        <ShareDocumentModal
+          visible={shareModalVisible}
+          documentId={selectedDocForShare.id}
+          documentTitle={selectedDocForShare.title}
+          onClose={() => {
+            setShareModalVisible(false);
+            setSelectedDocForShare(null);
+          }}
+          onSuccess={() => reload()}
+        />
+      )}
     </View>
   );
 }
