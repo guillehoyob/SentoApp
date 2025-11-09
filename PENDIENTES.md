@@ -119,6 +119,34 @@ const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
 
 ---
 
+### **Fase 8B (Futuro): Features Avanzadas** ⏱️ 2-3 días
+**Objetivo:** Escalar a grupos grandes (15-50 personas)
+
+**⚠️ IMPLEMENTAR SOLO SI:**
+- Beta testers lo piden
+- Grupos son grandes (15+ personas)
+- Ya validaste Fase 8A
+
+#### **Solicitudes Masivas:**
+- [ ] Solicitar documentos a múltiples personas a la vez
+- [ ] Dashboard de solicitudes masivas (progreso: X/N aprobadas)
+- [ ] Solicitar por tipo ("Pasaporte a todos")
+- [ ] Aprobar/Rechazar en batch
+
+#### **Permisos Pre-aprobados (Whitelist):**
+- [ ] Configurar lista de personas autorizadas por documento
+- [ ] "Oculto para todos excepto X, Y, Z"
+- [ ] Útil para viajes corporativos/organizadores
+
+#### **Dashboard Avanzado:**
+- [ ] Ver todas las solicitudes pendientes
+- [ ] Filtrar por tipo de documento
+- [ ] Estadísticas de aprobación
+
+**Estado:** Diseñado, esperando validación de 8A
+
+---
+
 ### **Fase 11 (Futuro): Documentos de Grupo** ⏱️ 2 días
 **Objetivo:** Docs no sensibles del viaje (reservas, tickets)
 
