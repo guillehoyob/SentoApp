@@ -87,63 +87,53 @@ const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
 
 ## 🔐 ROADMAP: SISTEMA DE DOCUMENTOS
 
-### **Fase 8 (AHORA): Vault Inteligente (B++)** ⏱️ 7-8 días
-**Objetivo:** Sistema de permisos flexible con contexto de viaje y solicitudes
+### **Fase 8: Vault Inteligente (8A++)** ⏱️ 10-11 días
+**Objetivo:** Sistema completo con roles, pre-requisitos y solicitudes inteligentes
+
+#### **Sistema de Roles & Permisos:** ⭐ CRÍTICO
+- [ ] **3 roles:** Owner, Admin, Member
+- [ ] Owners/Admins en whitelist automática (ven todo)
+- [ ] Promocionar miembros a admin
+- [ ] Permissions por rol (ver docs, solicitar, gestionar)
+
+#### **Pre-requisitos de Grupo:** ⭐ GAME-CHANGER
+- [ ] Configurar docs requeridos al crear grupo/viaje
+- [ ] Obligatorios vs opcionales
+- [ ] Visibilidad: admins_only vs all_members
+- [ ] **Modal de bienvenida** al unirse (solicita docs)
+- [ ] Dashboard de cumplimiento (X/N personas completas)
 
 #### **Permisos Inteligentes:**
 - [ ] Documentos personales del usuario (vault privado)
-- [ ] **5 tipos de permisos** ⭐ NUEVO
+- [ ] **5 tipos de permisos:**
   - [ ] Permanente (siempre visible)
   - [ ] Ligado al viaje (start_date → end_date automático)
   - [ ] Temporal (X días personalizados)
   - [ ] Manual (hasta que el dueño oculte)
   - [ ] Programado (desde fecha X hasta Y)
-- [ ] **Activación automática** según contexto del viaje ⭐ NUEVO
+- [ ] Activación automática según contexto del viaje
 - [ ] Diferenciación viajes vs grupos (lógica distinta)
 
-#### **Sistema de Solicitudes:**
-- [ ] **Solicitar acceso** a docs ocultos/expirados ⭐ NUEVO
-- [ ] **Aprobar/Rechazar** solicitudes con condiciones ⭐ NUEVO
-- [ ] Notificaciones de solicitudes pendientes ⭐ NUEVO
-- [ ] Historial de solicitudes en auditoría
+#### **Solicitudes Inteligentes:** ⭐ ESENCIAL PARA UX
+- [ ] **Solicitudes masivas:**
+  - [ ] Múltiples docs a 1 persona (vs 1 notif por doc)
+  - [ ] 1 doc a múltiples personas (solicitar pasaporte a todos)
+  - [ ] Dashboard de progreso (X/N aprobadas)
+- [ ] **Solicitudes individuales:**
+  - [ ] Solicitar acceso a docs ocultos/expirados
+  - [ ] Aprobar/Rechazar con condiciones
+- [ ] Notificaciones inteligentes (agrupadas)
+- [ ] Historial completo en auditoría
 
 #### **Seguridad & Auditoría:**
 - [ ] Auditoría mejorada (quién, qué, cuándo, desde dónde)
-- [ ] **Rate limiting** (máx 10 accesos/minuto por usuario)
-- [ ] **Log de intentos fallidos** (seguridad + compliance)
-- [ ] **Log de solicitudes** (quién pidió qué, aprobadas/rechazadas)
+- [ ] Rate limiting (10 accesos/minuto)
+- [ ] Log de intentos fallidos
+- [ ] Log de solicitudes (individuales y masivas)
 - [ ] Storage privado con RLS robusto
-- [ ] Metadata de accesos (IP, user agent) para auditoría
+- [ ] Metadata de accesos (IP, user agent)
 
-**Estado:** Sistema completo para producción. GDPR básico ✓✓
-
----
-
-### **Fase 8B (Futuro): Features Avanzadas** ⏱️ 2-3 días
-**Objetivo:** Escalar a grupos grandes (15-50 personas)
-
-**⚠️ IMPLEMENTAR SOLO SI:**
-- Beta testers lo piden
-- Grupos son grandes (15+ personas)
-- Ya validaste Fase 8A
-
-#### **Solicitudes Masivas:**
-- [ ] Solicitar documentos a múltiples personas a la vez
-- [ ] Dashboard de solicitudes masivas (progreso: X/N aprobadas)
-- [ ] Solicitar por tipo ("Pasaporte a todos")
-- [ ] Aprobar/Rechazar en batch
-
-#### **Permisos Pre-aprobados (Whitelist):**
-- [ ] Configurar lista de personas autorizadas por documento
-- [ ] "Oculto para todos excepto X, Y, Z"
-- [ ] Útil para viajes corporativos/organizadores
-
-#### **Dashboard Avanzado:**
-- [ ] Ver todas las solicitudes pendientes
-- [ ] Filtrar por tipo de documento
-- [ ] Estadísticas de aprobación
-
-**Estado:** Diseñado, esperando validación de 8A
+**Estado:** MVP completo y usable. GDPR básico ✓✓
 
 ---
 
