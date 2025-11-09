@@ -87,53 +87,104 @@ const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
 
 ## 🔐 ROADMAP: SISTEMA DE DOCUMENTOS
 
-### **Fase 8: Vault Inteligente (8A++)** ⏱️ 10-11 días
+### **Fase 8: Vault Inteligente (8A++)** ⏱️ Backend: ✅ | Frontend: 10-11 días
 **Objetivo:** Sistema completo con roles, pre-requisitos y solicitudes inteligentes
 
-#### **Sistema de Roles & Permisos:** ⭐ CRÍTICO
-- [ ] **3 roles:** Owner, Admin, Member
-- [ ] Owners/Admins en whitelist automática (ven todo)
-- [ ] Promocionar miembros a admin
-- [ ] Permissions por rol (ver docs, solicitar, gestionar)
+#### **BACKEND ✅ COMPLETADO**
 
-#### **Pre-requisitos de Grupo:** ⭐ GAME-CHANGER
-- [ ] Configurar docs requeridos al crear grupo/viaje
-- [ ] Obligatorios vs opcionales
-- [ ] Visibilidad: admins_only vs all_members
-- [ ] **Modal de bienvenida** al unirse (solicita docs)
-- [ ] Dashboard de cumplimiento (X/N personas completas)
+**Migración SQL:** `011_vault_inteligente_completo.sql` (1832 líneas)
+- [x] **8 tablas creadas:**
+  - [x] `user_documents` - Vault personal
+  - [x] `document_shares` - Compartir con grupos (5 tipos)
+  - [x] `document_individual_shares` - Shares individuales
+  - [x] `document_access_logs` - Auditoría completa
+  - [x] `document_access_requests` - Solicitudes individuales
+  - [x] `bulk_access_requests` - Solicitudes masivas
+  - [x] `group_document_requirements` - Pre-requisitos
+  - [x] `document_rate_limits` - Rate limiting
 
-#### **Permisos Inteligentes:**
-- [ ] Documentos personales del usuario (vault privado)
-- [ ] **5 tipos de permisos:**
-  - [ ] Permanente (siempre visible)
-  - [ ] Ligado al viaje (start_date → end_date automático)
-  - [ ] Temporal (X días personalizados)
-  - [ ] Manual (hasta que el dueño oculte)
-  - [ ] Programado (desde fecha X hasta Y)
-- [ ] Activación automática según contexto del viaje
-- [ ] Diferenciación viajes vs grupos (lógica distinta)
+- [x] **26 RPC Functions creadas:**
+  - [x] Gestión de documentos (3)
+  - [x] Compartir (3)
+  - [x] Solicitudes individuales (4)
+  - [x] Solicitudes masivas (3)
+  - [x] Pre-requisitos (4)
+  - [x] Roles (3)
+  - [x] Acceso y auditoría (3)
+  - [x] Rate limiting (2)
+  - [x] Helpers (1)
 
-#### **Solicitudes Inteligentes:** ⭐ ESENCIAL PARA UX
+- [x] **30+ índices para performance**
+- [x] **24+ RLS policies para seguridad**
+- [x] **1 trigger para updated_at**
+- [x] **Storage bucket configurado** (privado, 10MB)
+- [x] **3 RLS policies en Storage**
+
+**Cómo ejecutar:** Ver `GUIA_RAPIDA_FASE_8_FINAL.md` (5 pasos, 30 min)
+**Explicaciones detalladas:** Ver `INSTRUCCIONES_FASE_8_COMPLETO.md`
+
+---
+
+#### **FRONTEND ⏳ PENDIENTE** (10-11 días)
+
+##### **Sistema de Roles & Permisos:** ⭐ CRÍTICO (1 día)
+- [ ] UI para mostrar rol del usuario (badge)
+- [ ] Botón "Promocionar a Admin" (solo owners)
+- [ ] Permisos diferenciados en UI según rol
+- [ ] Badge visual Owner/Admin/Member en listas
+
+##### **Pre-requisitos de Grupo:** ⭐ GAME-CHANGER (1.5 días)
+- [ ] Formulario al crear grupo (seleccionar docs requeridos)
+- [ ] Obligatorios vs opcionales (checkboxes)
+- [ ] Visibilidad: admins_only vs all_members (dropdown)
+- [ ] **Modal de bienvenida** al unirse (wizard de compartir)
+- [ ] Dashboard de cumplimiento (barra de progreso, X/N completo)
+- [ ] Lista de quién falta qué docs (solo admins)
+
+##### **Permisos Inteligentes:** (2 días)
+- [ ] **5 tipos de permisos en UI:**
+  - [ ] Permanente (toggle simple)
+  - [ ] Ligado al viaje (auto, con preview de fechas)
+  - [ ] Temporal (input de días)
+  - [ ] Manual (default, toggle on/off cuando quiera)
+  - [ ] Programado (date picker desde/hasta)
+- [ ] Wizard de compartir (paso a paso, simple)
+- [ ] Preview de "cuándo será visible" antes de compartir
+- [ ] Iconos visuales para cada tipo
+
+##### **Solicitudes Inteligentes:** ⭐ ESENCIAL PARA UX (1.5 días)
 - [ ] **Solicitudes masivas:**
-  - [ ] Múltiples docs a 1 persona (vs 1 notif por doc)
-  - [ ] 1 doc a múltiples personas (solicitar pasaporte a todos)
-  - [ ] Dashboard de progreso (X/N aprobadas)
+  - [ ] Modal: "Solicitar múltiples docs" (checkboxes)
+  - [ ] Dashboard: "Progreso X/N aprobadas" (barra)
+  - [ ] Notificación agrupada: "María te solicita 3 docs"
 - [ ] **Solicitudes individuales:**
-  - [ ] Solicitar acceso a docs ocultos/expirados
-  - [ ] Aprobar/Rechazar con condiciones
-- [ ] Notificaciones inteligentes (agrupadas)
-- [ ] Historial completo en auditoría
+  - [ ] Botón "Solicitar acceso" en docs ocultos
+  - [ ] Modal de aprobar: "Para quién?" (yo / grupo), "Cuánto?" (días)
+  - [ ] Modal de rechazar: input de razón
+- [ ] Badge de solicitudes pendientes (número rojo)
 
-#### **Seguridad & Auditoría:**
-- [ ] Auditoría mejorada (quién, qué, cuándo, desde dónde)
-- [ ] Rate limiting (10 accesos/minuto)
-- [ ] Log de intentos fallidos
-- [ ] Log de solicitudes (individuales y masivas)
-- [ ] Storage privado con RLS robusto
-- [ ] Metadata de accesos (IP, user agent)
+##### **Gestión del Vault:** (1.5 días)
+- [ ] Pantalla "Mi Vault" (lista de docs)
+- [ ] Botón "Subir documento" (tipo, título, archivo)
+- [ ] Ver en qué grupos está compartido cada doc
+- [ ] Ocultar/mostrar doc de un grupo (toggle)
+- [ ] Ver logs de acceso (quién lo vio, cuándo)
 
-**Estado:** MVP completo y usable. GDPR básico ✓✓
+##### **Dashboard de Documentos:** (1 día)
+- [ ] Ver docs del grupo (filtrar por tipo)
+- [ ] Ver quién compartió qué
+- [ ] Indicador de "expiración próxima" (⚠️ caduca en 2 días)
+- [ ] Filtros: por persona, por tipo, por estado
+
+##### **Testing e Integración:** (2 días)
+- [ ] Flujo completo: crear grupo → configurar requisitos → invitar → wizard
+- [ ] Solicitudes masivas: múltiples docs
+- [ ] Solicitudes masivas: 1 doc a múltiples
+- [ ] Rate limiting (verificar que no explote)
+- [ ] Logs de auditoría (verificar que se registra todo)
+- [ ] Expiración automática de permisos trip-linked
+
+**Estado:** Backend ✅ completo y robusto. MVP frontend usable. GDPR básico ✓✓
 
 ---
 
