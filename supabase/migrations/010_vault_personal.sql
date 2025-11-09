@@ -1,20 +1,29 @@
 -- =====================================================
--- FASE 8: VAULT PERSONAL - DOCUMENTOS CON AUDITORÍA
+-- FASE 8: VAULT SEGURO (B+) - DOCUMENTOS CON AUDITORÍA MEJORADA
 -- =====================================================
 -- Esta migración implementa el sistema de documentos personales
--- con control de privacidad y auditoría de accesos.
+-- con control de privacidad, auditoría mejorada y compliance GDPR básico.
 --
 -- ARQUITECTURA:
 -- 1. user_documents → Documentos personales del usuario
--- 2. document_shares → Control de compartir con grupos
--- 3. document_access_logs → Auditoría (quién vio qué)
--- 4. Storage: documents/personal/USER_ID/DOC_ID/file.pdf
+-- 2. document_shares → Control de compartir con grupos + PERMISOS TEMPORALES
+-- 3. document_access_logs → Auditoría mejorada (metadata, intentos fallidos)
+-- 4. document_rate_limits → Rate limiting (anti-spam)
+-- 5. Storage: documents/personal/USER_ID/DOC_ID/file.pdf
+--
+-- MEJORAS B+ vs B:
+-- ✅ Permisos temporales (expires_at)
+-- ✅ Rate limiting (máx 10 accesos/minuto)
+-- ✅ Metadata de accesos (IP, user agent)
+-- ✅ Log de intentos fallidos
 --
 -- FILOSOFÍA:
 -- - Por defecto: TODO privado
 -- - Usuario decide qué compartir y con quién
+-- - Permisos pueden expirar automáticamente
 -- - Puede revocar acceso en cualquier momento
--- - Auditoría completa de accesos
+-- - Auditoría completa de accesos + intentos fallidos
+-- - Rate limiting para evitar spam/scraping
 -- =====================================================
 
 -- =====================================================
@@ -39,12 +48,14 @@ CREATE TABLE IF NOT EXISTS user_documents (
 -- =====================================================
 -- Control de compartir documentos con grupos
 -- El usuario decide qué docs compartir con qué grupos
+-- MEJORA B+: Permisos temporales con expires_at
 CREATE TABLE IF NOT EXISTS document_shares (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES user_documents(id) ON DELETE CASCADE,
   group_id uuid NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   shared_by uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   is_visible boolean DEFAULT true,
+  expires_at timestamptz, -- ⭐ NUEVO: Permiso temporal (NULL = sin expiración)
   shared_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   UNIQUE(document_id, group_id)
@@ -53,15 +64,32 @@ CREATE TABLE IF NOT EXISTS document_shares (
 -- =====================================================
 -- TABLA: document_access_logs
 -- =====================================================
--- Auditoría de accesos a documentos
--- Registra quién vio/descargó cada documento
+-- Auditoría mejorada de accesos a documentos
+-- Registra quién vio/descargó cada documento + intentos fallidos
+-- MEJORA B+: success, error_reason, metadata
 CREATE TABLE IF NOT EXISTS document_access_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id uuid NOT NULL REFERENCES user_documents(id) ON DELETE CASCADE,
   accessed_by uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   group_id uuid REFERENCES groups(id) ON DELETE SET NULL,
-  action text NOT NULL CHECK (action IN ('view', 'download', 'share', 'hide', 'revoke')),
+  action text NOT NULL CHECK (action IN ('view', 'download', 'share', 'hide', 'revoke', 'denied')),
+  success boolean DEFAULT true, -- ⭐ NUEVO: false si el acceso fue denegado
+  error_reason text, -- ⭐ NUEVO: razón del fallo (expired, not_shared, rate_limited)
+  metadata jsonb, -- ⭐ NUEVO: {ip, user_agent, referer, etc.}
   accessed_at timestamptz DEFAULT now()
+);
+
+-- =====================================================
+-- TABLA: document_rate_limits
+-- =====================================================
+-- Rate limiting para evitar spam/scraping
+-- MEJORA B+: Límite de 10 accesos por minuto por usuario
+CREATE TABLE IF NOT EXISTS document_rate_limits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  window_start timestamptz NOT NULL,
+  access_count integer DEFAULT 1,
+  UNIQUE(user_id, window_start)
 );
 
 -- =====================================================
@@ -92,6 +120,22 @@ ON document_access_logs(document_id);
 CREATE INDEX IF NOT EXISTS document_access_logs_accessed_at_idx 
 ON document_access_logs(accessed_at DESC);
 
+-- ⭐ NUEVO: Índice para logs de intentos fallidos
+CREATE INDEX IF NOT EXISTS document_access_logs_success_idx 
+ON document_access_logs(success) WHERE success = false;
+
+-- ⭐ NUEVO: Índice para metadata de logs (JSONB)
+CREATE INDEX IF NOT EXISTS document_access_logs_metadata_idx 
+ON document_access_logs USING gin(metadata);
+
+-- ⭐ NUEVO: Índice para expiración de shares
+CREATE INDEX IF NOT EXISTS document_shares_expires_at_idx 
+ON document_shares(expires_at) WHERE expires_at IS NOT NULL;
+
+-- ⭐ NUEVO: Índice para rate limiting
+CREATE INDEX IF NOT EXISTS document_rate_limits_window_start_idx 
+ON document_rate_limits(user_id, window_start DESC);
+
 -- =====================================================
 -- RLS: HABILITAR
 -- =====================================================
@@ -99,6 +143,7 @@ ON document_access_logs(accessed_at DESC);
 ALTER TABLE user_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_shares ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_access_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_rate_limits ENABLE ROW LEVEL SECURITY; -- ⭐ NUEVO
 
 -- =====================================================
 -- RLS POLICY: user_documents - SELECT
@@ -235,6 +280,27 @@ TO authenticated
 WITH CHECK (true);
 
 -- =====================================================
+-- RLS POLICY: document_rate_limits - SELECT
+-- =====================================================
+-- Solo puedes ver tus propios rate limits
+CREATE POLICY "Ver propios rate limits"
+ON document_rate_limits
+FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- =====================================================
+-- RLS POLICY: document_rate_limits - INSERT/UPDATE
+-- =====================================================
+-- Sistema puede crear/actualizar rate limits (SECURITY DEFINER)
+CREATE POLICY "Sistema gestiona rate limits"
+ON document_rate_limits
+FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- =====================================================
 -- TRIGGER: Actualizar updated_at en document_shares
 -- =====================================================
 
@@ -250,6 +316,52 @@ CREATE TRIGGER document_shares_updated_at
 BEFORE UPDATE ON document_shares
 FOR EACH ROW
 EXECUTE FUNCTION update_document_shares_updated_at();
+
+-- =====================================================
+-- RPC FUNCTION: check_rate_limit (HELPER)
+-- =====================================================
+-- Verifica rate limiting: máx 10 accesos por minuto
+-- MEJORA B+: Anti-spam y anti-scraping
+CREATE OR REPLACE FUNCTION check_rate_limit(p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_window_start timestamptz;
+  v_current_count integer;
+  v_limit integer := 10; -- Máximo 10 accesos por minuto
+BEGIN
+  -- Redondear al minuto actual
+  v_window_start := date_trunc('minute', now());
+
+  -- Obtener contador actual
+  SELECT access_count INTO v_current_count
+  FROM document_rate_limits
+  WHERE user_id = p_user_id
+    AND window_start = v_window_start;
+
+  -- Si no existe, crear
+  IF v_current_count IS NULL THEN
+    INSERT INTO document_rate_limits (user_id, window_start, access_count)
+    VALUES (p_user_id, v_window_start, 1);
+    RETURN true;
+  END IF;
+
+  -- Si excede el límite
+  IF v_current_count >= v_limit THEN
+    RETURN false;
+  END IF;
+
+  -- Incrementar contador
+  UPDATE document_rate_limits
+  SET access_count = access_count + 1
+  WHERE user_id = p_user_id
+    AND window_start = v_window_start;
+
+  RETURN true;
+END;
+$$;
 
 -- =====================================================
 -- RPC FUNCTION: create_personal_document
@@ -322,9 +434,11 @@ $$;
 -- RPC FUNCTION: share_document_with_group
 -- =====================================================
 -- Comparte un documento personal con un grupo
+-- MEJORA B+: Soporte para expires_at (permisos temporales)
 CREATE OR REPLACE FUNCTION share_document_with_group(
   p_document_id uuid,
-  p_group_id uuid
+  p_group_id uuid,
+  p_expires_in_days integer DEFAULT NULL -- ⭐ NUEVO: NULL = sin expiración
 )
 RETURNS json
 LANGUAGE plpgsql
@@ -335,6 +449,7 @@ DECLARE
   v_is_owner boolean;
   v_is_member boolean;
   v_share_id uuid;
+  v_expires_at timestamptz;
 BEGIN
   -- Obtener ID del usuario autenticado
   v_user_id := auth.uid();
@@ -365,22 +480,32 @@ BEGIN
     RAISE EXCEPTION 'No eres miembro de este grupo';
   END IF;
 
+  -- Calcular expiración si se especificó
+  IF p_expires_in_days IS NOT NULL THEN
+    v_expires_at := now() + (p_expires_in_days || ' days')::interval;
+  ELSE
+    v_expires_at := NULL;
+  END IF;
+
   -- Crear o actualizar el share
   INSERT INTO document_shares (
     document_id,
     group_id,
     shared_by,
-    is_visible
+    is_visible,
+    expires_at
   )
   VALUES (
     p_document_id,
     p_group_id,
     v_user_id,
-    true
+    true,
+    v_expires_at
   )
   ON CONFLICT (document_id, group_id)
   DO UPDATE SET
     is_visible = true,
+    expires_at = v_expires_at,
     updated_at = now()
   RETURNING id INTO v_share_id;
 
@@ -389,13 +514,17 @@ BEGIN
     document_id,
     accessed_by,
     group_id,
-    action
+    action,
+    success,
+    metadata
   )
   VALUES (
     p_document_id,
     v_user_id,
     p_group_id,
-    'share'
+    'share',
+    true,
+    json_build_object('expires_at', v_expires_at)::jsonb
   );
 
   -- Retornar el share
@@ -406,6 +535,7 @@ BEGIN
       'group_id', ds.group_id,
       'shared_by', ds.shared_by,
       'is_visible', ds.is_visible,
+      'expires_at', ds.expires_at,
       'shared_at', ds.shared_at,
       'updated_at', ds.updated_at
     )
@@ -516,6 +646,7 @@ BEGIN
               'group_id', ds.group_id,
               'group_name', g.name,
               'is_visible', ds.is_visible,
+              'expires_at', ds.expires_at, -- ⭐ NUEVO
               'shared_at', ds.shared_at
             )
           )
@@ -543,6 +674,7 @@ $$;
 -- =====================================================
 -- Obtiene documentos que miembros han compartido con el grupo
 -- Solo visibles para miembros del grupo
+-- MEJORA B+: Filtra documentos expirados
 CREATE OR REPLACE FUNCTION get_group_shared_documents(p_group_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -570,7 +702,7 @@ BEGIN
     RAISE EXCEPTION 'No eres miembro de este grupo';
   END IF;
 
-  -- Retornar documentos compartidos y visibles
+  -- Retornar documentos compartidos y visibles (no expirados)
   RETURN (
     SELECT json_agg(
       json_build_object(
@@ -582,6 +714,7 @@ BEGIN
         'mime_type', ud.mime_type,
         'size_bytes', ud.size_bytes,
         'shared_at', ds.shared_at,
+        'expires_at', ds.expires_at, -- ⭐ NUEVO
         'owner', (
           SELECT json_build_object(
             'id', p.id,
@@ -598,6 +731,7 @@ BEGIN
     JOIN user_documents ud ON ud.id = ds.document_id
     WHERE ds.group_id = p_group_id
       AND ds.is_visible = true
+      AND (ds.expires_at IS NULL OR ds.expires_at > now()) -- ⭐ NUEVO: Filtrar expirados
     ORDER BY ds.shared_at DESC
   );
 END;
@@ -608,9 +742,11 @@ $$;
 -- =====================================================
 -- Genera signed URL y registra el acceso
 -- Verifica permisos: debe ser miembro del grupo donde está compartido
+-- MEJORA B+: Rate limiting + verificación de expiración + metadata
 CREATE OR REPLACE FUNCTION get_document_url(
   p_document_id uuid,
-  p_group_id uuid
+  p_group_id uuid,
+  p_metadata jsonb DEFAULT NULL -- ⭐ NUEVO: {ip, user_agent, referer}
 )
 RETURNS json
 LANGUAGE plpgsql
@@ -620,13 +756,35 @@ DECLARE
   v_user_id uuid;
   v_is_shared boolean;
   v_is_member boolean;
+  v_is_expired boolean;
+  v_expires_at timestamptz;
   v_storage_path text;
+  v_rate_limit_ok boolean;
 BEGIN
   -- Obtener ID del usuario autenticado
   v_user_id := auth.uid();
   
   IF v_user_id IS NULL THEN
+    -- Log de intento fallido
+    INSERT INTO document_access_logs (
+      document_id, accessed_by, group_id, action, success, error_reason
+    ) VALUES (
+      p_document_id, v_user_id, p_group_id, 'denied', false, 'not_authenticated'
+    );
     RAISE EXCEPTION 'Usuario no autenticado';
+  END IF;
+
+  -- ⭐ NUEVO: Verificar rate limiting
+  SELECT check_rate_limit(v_user_id) INTO v_rate_limit_ok;
+  
+  IF NOT v_rate_limit_ok THEN
+    -- Log de intento fallido por rate limit
+    INSERT INTO document_access_logs (
+      document_id, accessed_by, group_id, action, success, error_reason, metadata
+    ) VALUES (
+      p_document_id, v_user_id, p_group_id, 'denied', false, 'rate_limited', p_metadata
+    );
+    RAISE EXCEPTION 'Demasiados intentos. Espera un momento.';
   END IF;
 
   -- Verificar que el usuario es miembro del grupo
@@ -637,18 +795,49 @@ BEGIN
   ) INTO v_is_member;
 
   IF NOT v_is_member THEN
+    -- Log de intento fallido
+    INSERT INTO document_access_logs (
+      document_id, accessed_by, group_id, action, success, error_reason, metadata
+    ) VALUES (
+      p_document_id, v_user_id, p_group_id, 'denied', false, 'not_member', p_metadata
+    );
     RAISE EXCEPTION 'No eres miembro de este grupo';
   END IF;
 
-  -- Verificar que el documento está compartido en el grupo y es visible
-  SELECT EXISTS(
-    SELECT 1 FROM document_shares
-    WHERE document_id = p_document_id
-      AND group_id = p_group_id
-      AND is_visible = true
-  ) INTO v_is_shared;
+  -- ⭐ NUEVO: Verificar que el documento está compartido, visible Y no expirado
+  SELECT 
+    EXISTS(
+      SELECT 1 FROM document_shares
+      WHERE document_id = p_document_id
+        AND group_id = p_group_id
+        AND is_visible = true
+        AND (expires_at IS NULL OR expires_at > now())
+    ),
+    (
+      SELECT expires_at FROM document_shares
+      WHERE document_id = p_document_id
+        AND group_id = p_group_id
+    )
+  INTO v_is_shared, v_expires_at;
+
+  -- Verificar expiración
+  IF v_expires_at IS NOT NULL AND v_expires_at <= now() THEN
+    -- Log de intento fallido por expiración
+    INSERT INTO document_access_logs (
+      document_id, accessed_by, group_id, action, success, error_reason, metadata
+    ) VALUES (
+      p_document_id, v_user_id, p_group_id, 'denied', false, 'expired', p_metadata
+    );
+    RAISE EXCEPTION 'Este permiso ha expirado';
+  END IF;
 
   IF NOT v_is_shared THEN
+    -- Log de intento fallido
+    INSERT INTO document_access_logs (
+      document_id, accessed_by, group_id, action, success, error_reason, metadata
+    ) VALUES (
+      p_document_id, v_user_id, p_group_id, 'denied', false, 'not_shared', p_metadata
+    );
     RAISE EXCEPTION 'Este documento no está compartido en este grupo';
   END IF;
 
@@ -657,25 +846,30 @@ BEGIN
   FROM user_documents
   WHERE id = p_document_id;
 
-  -- Crear log de auditoría
+  -- ⭐ NUEVO: Crear log de acceso exitoso con metadata
   INSERT INTO document_access_logs (
     document_id,
     accessed_by,
     group_id,
-    action
+    action,
+    success,
+    metadata
   )
   VALUES (
     p_document_id,
     v_user_id,
     p_group_id,
-    'view'
+    'view',
+    true,
+    p_metadata
   );
 
   -- Retornar el storage_path para que el cliente genere la signed URL
   -- (No podemos generar signed URL desde SQL, se hace en el cliente)
   RETURN json_build_object(
     'storage_path', v_storage_path,
-    'document_id', p_document_id
+    'document_id', p_document_id,
+    'expires_at', v_expires_at
   );
 END;
 $$;
@@ -685,6 +879,7 @@ $$;
 -- =====================================================
 -- Obtiene el historial de accesos de un documento
 -- Solo el dueño puede ver los logs
+-- MEJORA B+: Incluye success, error_reason, metadata
 CREATE OR REPLACE FUNCTION get_document_access_logs(p_document_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -712,12 +907,15 @@ BEGIN
     RAISE EXCEPTION 'No eres el dueño de este documento';
   END IF;
 
-  -- Retornar logs
+  -- Retornar logs con nuevos campos
   RETURN (
     SELECT json_agg(
       json_build_object(
         'id', dal.id,
         'action', dal.action,
+        'success', dal.success, -- ⭐ NUEVO
+        'error_reason', dal.error_reason, -- ⭐ NUEVO
+        'metadata', dal.metadata, -- ⭐ NUEVO
         'accessed_at', dal.accessed_at,
         'accessed_by', (
           SELECT json_build_object(
@@ -811,9 +1009,26 @@ END;
 $$;
 
 -- =====================================================
+-- RPC FUNCTION: cleanup_old_rate_limits (CRON)
+-- =====================================================
+-- Limpia rate limits antiguos (más de 1 hora)
+-- Se ejecutará automáticamente cada hora (pg_cron)
+CREATE OR REPLACE FUNCTION cleanup_old_rate_limits()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  DELETE FROM document_rate_limits
+  WHERE window_start < now() - interval '1 hour';
+END;
+$$;
+
+-- =====================================================
 -- PERMISOS
 -- =====================================================
 
+GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated; -- ⭐ NUEVO
 GRANT EXECUTE ON FUNCTION create_personal_document TO authenticated;
 GRANT EXECUTE ON FUNCTION share_document_with_group TO authenticated;
 GRANT EXECUTE ON FUNCTION hide_document_from_group TO authenticated;
@@ -822,25 +1037,41 @@ GRANT EXECUTE ON FUNCTION get_group_shared_documents TO authenticated;
 GRANT EXECUTE ON FUNCTION get_document_url TO authenticated;
 GRANT EXECUTE ON FUNCTION get_document_access_logs TO authenticated;
 GRANT EXECUTE ON FUNCTION revoke_all_shares TO authenticated;
+GRANT EXECUTE ON FUNCTION cleanup_old_rate_limits TO postgres; -- Solo sistema
 
 -- =====================================================
 -- COMENTARIOS
 -- =====================================================
 
 COMMENT ON TABLE user_documents IS 'Vault personal: documentos privados del usuario';
-COMMENT ON TABLE document_shares IS 'Control de compartir documentos con grupos';
-COMMENT ON TABLE document_access_logs IS 'Auditoría: historial de accesos a documentos';
+COMMENT ON TABLE document_shares IS 'Control de compartir documentos con grupos + permisos temporales (B+)';
+COMMENT ON TABLE document_access_logs IS 'Auditoría mejorada: historial de accesos + intentos fallidos + metadata (B+)';
+COMMENT ON TABLE document_rate_limits IS 'Rate limiting: máx 10 accesos/minuto por usuario (B+)';
 
+COMMENT ON FUNCTION check_rate_limit IS 'Verifica rate limiting (anti-spam)';
 COMMENT ON FUNCTION create_personal_document IS 'Crea un documento en el vault personal';
-COMMENT ON FUNCTION share_document_with_group IS 'Comparte un documento personal con un grupo';
+COMMENT ON FUNCTION share_document_with_group IS 'Comparte documento con grupo (soporte expires_at)';
 COMMENT ON FUNCTION hide_document_from_group IS 'Oculta un documento de un grupo';
 COMMENT ON FUNCTION get_my_documents IS 'Obtiene todos los documentos personales del usuario';
-COMMENT ON FUNCTION get_group_shared_documents IS 'Obtiene documentos compartidos en un grupo';
-COMMENT ON FUNCTION get_document_url IS 'Genera URL y registra acceso';
-COMMENT ON FUNCTION get_document_access_logs IS 'Obtiene historial de accesos';
+COMMENT ON FUNCTION get_group_shared_documents IS 'Obtiene docs compartidos en grupo (filtra expirados)';
+COMMENT ON FUNCTION get_document_url IS 'Genera URL + verifica rate limit + registra acceso con metadata';
+COMMENT ON FUNCTION get_document_access_logs IS 'Obtiene historial completo (exitosos + fallidos)';
 COMMENT ON FUNCTION revoke_all_shares IS 'Revoca acceso de todos los grupos';
+COMMENT ON FUNCTION cleanup_old_rate_limits IS 'Limpia rate limits antiguos (cron cada hora)';
 
 -- =====================================================
--- FIN DE MIGRACIÓN
+-- FIN DE MIGRACIÓN - VAULT SEGURO (B+)
+-- =====================================================
+-- 
+-- RESUMEN DE MEJORAS B+ vs B:
+-- ✅ Permisos temporales (expires_at)
+-- ✅ Rate limiting (10 accesos/min)
+-- ✅ Metadata en logs (IP, user agent)
+-- ✅ Log de intentos fallidos
+-- ✅ Filtrado automático de expirados
+-- 
+-- LISTO PARA: Desarrollo y beta testing
+-- PRÓXIMO PASO: Frontend (Fase 9)
+-- UPGRADE A C+++: Antes de lanzamiento público
 -- =====================================================
 

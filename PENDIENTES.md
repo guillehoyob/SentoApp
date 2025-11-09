@@ -87,28 +87,95 @@ const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
 
 ## 🔐 ROADMAP: SISTEMA DE DOCUMENTOS
 
-### **Fase 8 (Actual): Vault Personal** ⏱️ 4 días
-- [ ] Documentos personales del usuario
+### **Fase 8 (AHORA): Vault Seguro (B+)** ⏱️ 6-7 días
+**Objetivo:** MVP serio con seguridad suficiente para GDPR básico
+
+- [ ] Documentos personales del usuario (vault privado)
 - [ ] Compartir con grupos (control manual)
-- [ ] Auditoría de accesos (quién vio qué)
+- [ ] Auditoría mejorada (quién, qué, cuándo, desde dónde)
+- [ ] **Permisos temporales** (expires_at en shares) ⭐ NUEVO
+- [ ] **Rate limiting** (máx 10 accesos/minuto por usuario) ⭐ NUEVO
+- [ ] **Log de intentos fallidos** (seguridad + compliance) ⭐ NUEVO
 - [ ] Ocultar/mostrar documentos por grupo
-- [ ] Storage privado con RLS
+- [ ] Storage privado con RLS robusto
+- [ ] Metadata de accesos (IP, user agent) para auditoría
+
+**Estado:** Suficiente para desarrollo y beta testers. GDPR básico ✓
+
+---
 
 ### **Fase 11 (Futuro): Documentos de Grupo** ⏱️ 2 días
-- [ ] Docs compartidos del grupo (reservas, tickets)
-- [ ] Diferencia visual: "Mis docs" vs "Docs del grupo"
-- [ ] Todos los miembros ven docs del grupo
+**Objetivo:** Docs no sensibles del viaje (reservas, tickets)
 
-### **Fase 15 (Futuro): Upgrade a Seguridad Máxima** ⏱️ 1-2 semanas
-- [ ] Encriptación E2E (end-to-end)
-- [ ] Claves derivadas del password del usuario
-- [ ] Permisos temporales (expiran en X días)
-- [ ] Marcas de agua en PDFs
-- [ ] Control de descargas
-- [ ] Auditoría avanzada (intentos fallidos)
-- [ ] Compliance GDPR completo
+- [ ] Tabla `group_documents` (separada de vault personal)
+- [ ] Diferencia visual: "Mi Vault" vs "Docs del grupo"
+- [ ] Todos los miembros ven docs del grupo (sin permisos)
+- [ ] Subida colaborativa
 
-**IMPORTANTE:** La arquitectura de Fase 8 está diseñada para escalar fácilmente a Fase 15.
+---
+
+### **Fase 14 (PRE-LAUNCH): Upgrade a Seguridad Máxima (C+++)** ⏱️ 2-3 semanas
+**Objetivo:** Compliance GDPR completo + marketing de seguridad
+
+**⚠️ CRÍTICO ANTES DE LANZAMIENTO PÚBLICO**
+
+#### **C1: Encriptación E2E** (1 semana)
+- [ ] Encriptación client-side con Web Crypto API
+- [ ] Clave maestra derivada del password del usuario
+- [ ] Key derivation con PBKDF2 (100k iteraciones)
+- [ ] Archivos encriptados con AES-256-GCM
+- [ ] Solo el usuario puede desencriptar
+- [ ] Compartir: encriptar con clave del grupo
+
+#### **C2: Auditoría Avanzada** (2-3 días)
+- [ ] Logs inmutables (append-only)
+- [ ] Detección de accesos anómalos
+- [ ] Alertas automáticas al usuario
+- [ ] Export de logs para compliance
+- [ ] Retención de logs: 2 años (GDPR)
+
+#### **C3: Controles Avanzados** (3-4 días)
+- [ ] Marcas de agua en PDFs/imágenes
+- [ ] Proxy de descargas (bloquear screenshot)
+- [ ] Expiración forzada de permisos
+- [ ] Revocación retroactiva (invalidar URLs)
+- [ ] Geofencing (acceso solo desde ciertos países)
+
+#### **C4: Compliance Legal** (2-3 días)
+- [ ] Terms of Service para documentos
+- [ ] Consentimiento explícito (modal)
+- [ ] Right to be forgotten (delete cascade)
+- [ ] Data export (JSON completo del usuario)
+- [ ] Privacy Policy específica para docs
+- [ ] Cookie consent para storage de auditoría
+
+**Estado:** Listo para lanzamiento público europeo. GDPR completo ✓✓✓
+
+---
+
+## 📅 TIMELINE RECOMENDADO:
+
+```
+AHORA (Semanas 1-2):
+├─ Fase 8: Vault Seguro (B+) ✓
+└─ Fase 9-10: Frontend del vault
+
+Semanas 3-6:
+├─ Fases 11-13: Otras features (gastos, chat, etc.)
+└─ Beta testing con usuarios reales
+
+Semanas 7-9 (PRE-LAUNCH):
+├─ Fase 14: Upgrade a C+++
+└─ Legal review + términos
+
+Semana 10+:
+└─ LANZAMIENTO PÚBLICO
+```
+
+**IMPORTANTE:** 
+- B+ es suficiente para desarrollo y beta
+- C+++ es OBLIGATORIO antes de lanzamiento público
+- El upgrade B+ → C+++ está diseñado para ser directo (mismas tablas, añadir features)
 
 ---
 
