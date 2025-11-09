@@ -15,8 +15,8 @@ import {
 import { router } from 'expo-router';
 import { useDocuments } from '../../src/hooks/useDocuments';
 import { useAccessRequests } from '../../src/hooks/useAccessRequests';
-import Button from '../../src/components/Button';
-import ErrorMessage from '../../src/components/ErrorMessage';
+import { Button } from '../../src/components/Button';
+import { ErrorMessage } from '../../src/components/ErrorMessage';
 import {
   getDocumentTypeLabel,
   getShareTypeLabel,
