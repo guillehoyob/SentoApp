@@ -197,9 +197,15 @@ serve(async (req: Request) => {
     // 7. CONSTRUIR DEEP LINK
     // =====================================================
     
-    // Deep link format: sento://invite/GROUP_ID?t=TOKEN
-    // Cuando el usuario abre este link, la app se abre en la pantalla de invitación
-    const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
+    // Para desarrollo con Expo Go, usar formato exp://
+    // Para producción (APK/IPA), cambiar a: sento://invite/${group_id}?t=${inviteToken}
+    
+    // Formato Expo Go: exp://HOST/--/join?groupId=X&token=Y
+    // El HOST debe ser la IP de tu servidor Expo (ej: 192.168.1.100:8081)
+    const deepLink = `https://sento.app/invite/${group_id}?t=${inviteToken}`;
+    
+    // NOTA: Este link tipo https:// redirigirá a la app una vez publiques
+    // Por ahora, para probar en desarrollo, copia manualmente el groupId y token
 
     // =====================================================
     // 8. RETORNAR RESPUESTA

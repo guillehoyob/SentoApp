@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, ActivityIndicator, Alert, Linking, Share } from 'react-native';
+import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { generateInvite } from '../services/invites.service';
 
@@ -15,6 +16,7 @@ interface ShareInviteModalProps {
 }
 
 export function ShareInviteModal({ groupId, groupName, visible, onClose }: ShareInviteModalProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [inviteUrl, setInviteUrl] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -175,6 +177,28 @@ export function ShareInviteModal({ groupId, groupName, visible, onClose }: Share
                   💡 Cualquier persona con este link podrá unirse al grupo
                 </Text>
               </View>
+
+              {/* BOTÓN DE PRUEBA PARA DESARROLLO */}
+              <TouchableOpacity
+                className="mt-md bg-neutral-200 rounded-xl py-md items-center"
+                onPress={() => {
+                  // Extraer groupId y token del URL
+                  const match = inviteUrl.match(/invite\/([^?]+)\?t=(.+)/);
+                  if (match) {
+                    const [, testGroupId, testToken] = match;
+                    console.log('🧪 TESTING - GroupId:', testGroupId);
+                    console.log('🧪 TESTING - Token:', testToken);
+                    
+                    // Navegar directamente a la pantalla de join
+                    onClose();
+                    router.push(`/(authenticated)/join?groupId=${testGroupId}&token=${testToken}`);
+                  }
+                }}
+              >
+                <Text className="font-body-medium text-sm text-neutral-700">
+                  🧪 Simular invitación (testing)
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>

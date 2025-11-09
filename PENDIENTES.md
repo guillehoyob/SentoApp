@@ -1,5 +1,88 @@
 # Pendientes
 
+---
+
+## 🎯 FASE 6 & 7: Sistema de Invitaciones
+
+### ✅ Completado:
+- [x] RPC function `join_group` creada en Supabase
+- [x] Edge Function `generate-invite` desplegada
+- [x] Modal de compartir invitación (copiar, WhatsApp, compartir)
+- [x] Pantalla de join con preview del grupo
+- [x] Configuración de deep linking (`sento://`)
+- [x] Botón de prueba para desarrollo
+
+### ⏳ Pendiente de validar:
+
+#### **1. Probar con 2 usuarios reales**
+
+**Cómo hacerlo:**
+
+**Opción A: Con 2 móviles/cuentas**
+1. Usuario A genera invitación y comparte por WhatsApp
+2. Usuario B abre link desde WhatsApp
+3. Como Expo Go no soporta deep links custom, Usuario B debe:
+   - Copiar el link completo
+   - En la app de Usuario B, ir a cualquier grupo
+   - Pulsar "Invitar"
+   - Pulsar botón "🧪 Simular invitación"
+   - Esto navega a pantalla de join
+4. Usuario B pulsa "Unirme al grupo"
+5. Verificar en Supabase SQL Editor:
+   ```sql
+   SELECT g.name, gm.role, p.email 
+   FROM group_members gm
+   JOIN groups g ON gm.group_id = g.id
+   JOIN profiles p ON gm.user_id = p.id
+   WHERE g.name = 'NombreDelGrupo';
+   ```
+
+**Opción B: Generar APK de desarrollo**
+```bash
+# Instalar EAS CLI
+npm install -g eas-cli
+
+# Login en Expo
+eas login
+
+# Configurar proyecto
+eas build:configure
+
+# Generar APK
+eas build --platform android --profile preview
+```
+Con APK instalado, los deep links `sento://invite/...` funcionarán directamente.
+
+#### **2. Validar errores**
+
+**Ya es miembro:**
+- Intenta unirte a tu propio grupo
+- Debe mostrar: "Ya eres miembro de este grupo"
+
+**Token expirado:**
+- Genera token con `expiresIn: 60` (1 minuto)
+- Espera 2 minutos
+- Intenta unirte
+- Debe mostrar: "Este link de invitación ha expirado"
+
+#### **3. Deep links en producción**
+
+**Cuando publiques la app:**
+- Los deep links `sento://invite/...` abrirán la app automáticamente
+- No será necesario el botón de prueba
+- Eliminar el botón "🧪 Simular" de `ShareInviteModal.tsx` (líneas 179-201)
+
+**Archivo a modificar:**
+```typescript
+// supabase/functions/generate-invite/index.ts línea 205
+// Cambiar de:
+const deepLink = `https://sento.app/invite/${group_id}?t=${inviteToken}`;
+// A:
+const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
+```
+
+---
+
 ## OAuth con Google
 
 ### Configuración en Google Cloud Console
