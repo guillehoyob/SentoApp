@@ -83,6 +83,59 @@ const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
 
 ---
 
+---
+
+## 🔐 ROADMAP: SISTEMA DE DOCUMENTOS
+
+### **Fase 8 (Actual): Vault Personal** ⏱️ 4 días
+- [ ] Documentos personales del usuario
+- [ ] Compartir con grupos (control manual)
+- [ ] Auditoría de accesos (quién vio qué)
+- [ ] Ocultar/mostrar documentos por grupo
+- [ ] Storage privado con RLS
+
+### **Fase 11 (Futuro): Documentos de Grupo** ⏱️ 2 días
+- [ ] Docs compartidos del grupo (reservas, tickets)
+- [ ] Diferencia visual: "Mis docs" vs "Docs del grupo"
+- [ ] Todos los miembros ven docs del grupo
+
+### **Fase 15 (Futuro): Upgrade a Seguridad Máxima** ⏱️ 1-2 semanas
+- [ ] Encriptación E2E (end-to-end)
+- [ ] Claves derivadas del password del usuario
+- [ ] Permisos temporales (expiran en X días)
+- [ ] Marcas de agua en PDFs
+- [ ] Control de descargas
+- [ ] Auditoría avanzada (intentos fallidos)
+- [ ] Compliance GDPR completo
+
+**IMPORTANTE:** La arquitectura de Fase 8 está diseñada para escalar fácilmente a Fase 15.
+
+---
+
+## 🚨 NOTAS IMPORTANTES PARA PRODUCCIÓN:
+
+### **1. Cambiar deep link en Edge Function**
+```typescript
+// De:
+const deepLink = `https://sento.app/invite/${group_id}?t=${inviteToken}`;
+// A:
+const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
+```
+
+**Archivo:** `supabase/functions/generate-invite/index.ts` (línea 205)
+
+### **2. Eliminar botón de prueba**
+**Archivo:** `ShareInviteModal.tsx` (líneas 179-201)
+
+Eliminar el botón "🧪 Simular invitación (testing)"
+
+### **3. Configurar variables de entorno en producción**
+- Verificar que `JWT_SECRET` está configurado en Edge Function Settings
+- Verificar URLs de callback de OAuth
+- Configurar SMTP para emails de confirmación (si se habilita)
+
+---
+
 ## OAuth con Google
 
 ### Configuración en Google Cloud Console

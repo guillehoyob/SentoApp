@@ -1,6 +1,16 @@
-# ⚡ GUÍA RÁPIDA - FASE 8: DOCUMENTOS BACKEND
+# ⚡ GUÍA RÁPIDA - FASE 8: VAULT PERSONAL
 
 **Para la guía completa y detallada, abre:** `INSTRUCCIONES_FASE_8.md`
+
+---
+
+## 🎯 QUÉ VAMOS A CREAR:
+
+### **Vault Personal:**
+- Cada usuario tiene documentos privados (pasaporte, DNI, etc.)
+- El usuario decide qué compartir y con quién
+- Puede ocultar/mostrar en cualquier momento
+- Auditoría completa: sabe quién vio sus docs
 
 ---
 
@@ -8,18 +18,18 @@
 
 ### ✅ **PASO 1: SQL en Supabase** (5 min)
 
-1. Abre archivo: `supabase/migrations/010_documents_schema.sql`
+1. Abre archivo: `supabase/migrations/010_vault_personal.sql`
 2. Copia **TODO** el contenido (Ctrl+A, Ctrl+C)
 3. Ve a: https://supabase.com/dashboard → SQL Editor
 4. Pega y haz clic en **Run**
 5. Verifica:
    ```sql
    SELECT tablename FROM pg_tables 
-   WHERE tablename IN ('documents', 'document_versions');
+   WHERE tablename IN ('user_documents', 'document_shares', 'document_access_logs');
    ```
-6. Debe aparecer: `documents` y `document_versions`
+6. Debe aparecer: `user_documents`, `document_shares`, `document_access_logs`
 
-**✅ Hecho:** Tablas, RLS y RPC functions creadas.
+**✅ Hecho:** Tablas, RLS y 8 RPC functions creadas.
 
 ---
 
@@ -47,57 +57,69 @@
 
 2. **New policy** → **For full customization**
 
-#### **Política 1: INSERT**
-- **Name:** `Miembros pueden subir documentos`
+#### **Política 1: INSERT (Subir)**
+- **Name:** `Usuarios pueden subir a su carpeta`
 - **Operation:** INSERT
 - **Definition:**
   ```sql
   (
-    auth.uid() IN (
-      SELECT user_id 
-      FROM group_members 
-      WHERE group_id = (storage.foldername(name))[1]::uuid
-    )
+    auth.uid()::text = (storage.foldername(name))[2]
   )
   ```
 
-#### **Política 2: SELECT**
-- **Name:** `Miembros pueden ver documentos`
+**Explicación:** `documents/personal/USER_ID/...` → Solo subes a tu carpeta.
+
+---
+
+#### **Política 2: SELECT (Descargar)**
+- **Name:** `Ver docs propios o compartidos`
 - **Operation:** SELECT
 - **Definition:**
   ```sql
   (
-    auth.uid() IN (
-      SELECT user_id 
-      FROM group_members 
-      WHERE group_id = (storage.foldername(name))[1]::uuid
+    -- Es tu documento
+    auth.uid()::text = (storage.foldername(name))[2]
+    OR
+    -- O está compartido contigo en algún grupo
+    EXISTS (
+      SELECT 1 
+      FROM document_shares ds
+      JOIN user_documents ud ON ud.id = ds.document_id
+      JOIN group_members gm ON gm.group_id = ds.group_id
+      WHERE ud.storage_path = name
+        AND gm.user_id = auth.uid()
+        AND ds.is_visible = true
     )
   )
   ```
 
-#### **Política 3: DELETE**
-- **Name:** `Solo dueños pueden eliminar`
+**Explicación:** Ves tu doc O docs que otros compartieron contigo.
+
+---
+
+#### **Política 3: DELETE (Eliminar)**
+- **Name:** `Solo dueños eliminan`
 - **Operation:** DELETE
 - **Definition:**
   ```sql
   (
-    auth.uid() = (
-      SELECT owner_id 
-      FROM documents 
-      WHERE id = (storage.foldername(name))[2]::uuid
-    )
+    auth.uid()::text = (storage.foldername(name))[2]
   )
   ```
 
-**✅ Hecho:** Storage con políticas de seguridad.
+**Explicación:** Solo borras tus propios archivos.
+
+---
+
+**✅ Hecho:** Storage con seguridad completa.
 
 ---
 
 ## ✅ VERIFICACIÓN FINAL:
 
 **Checklist:**
-- [ ] Tablas `documents` y `document_versions` existen
-- [ ] 3 RPC functions creadas (`upload_doc_metadata`, `add_doc_version`, `get_group_documents`)
+- [ ] Tablas `user_documents`, `document_shares`, `document_access_logs` existen
+- [ ] 8 RPC functions creadas
 - [ ] Bucket `documents` creado (privado)
 - [ ] 3 políticas RLS en Storage configuradas
 
@@ -107,51 +129,96 @@
 
 ## 🆘 ERRORES COMUNES:
 
-### ❌ "relation documents already exists"
+### ❌ "relation user_documents already exists"
 **Solución:** Ya la ejecutaste antes. ¡Está bien! Continúa.
 
 ### ❌ "bucket documents already exists"  
 **Solución:** Ya existe. Verifica que tenga las políticas.
 
-### ❌ Error en política de Storage
+### ❌ Error en política de Storage (SELECT)
 **Solución:** 
-- Verifica que las tablas `documents` y `group_members` existan
-- Copia la SQL exactamente como está
+- Copia la SQL **exactamente** como está
+- Si falla, elimina la política y créala de nuevo
+- Verifica que las tablas `user_documents`, `document_shares`, `group_members` existen
 
 ---
 
-## 📚 CONCEPTOS CLAVE:
+## 🎓 CONCEPTOS CLAVE:
 
-### **Storage Bucket**
+### **Vault Personal**
 ```
-Almacenamiento de archivos en Supabase
-- Privado → Solo con políticas RLS
-- 10MB max por archivo
-- Estructura: documents/group_id/doc_id/file.pdf
-```
+Cada usuario tiene su "caja fuerte" privada:
+  ├─ Pasaporte.pdf (privado por defecto)
+  ├─ DNI.pdf (privado por defecto)
+  └─ Seguro.pdf (privado por defecto)
 
-### **RLS en Storage**
-```
-INSERT  → ¿Quién puede subir?
-SELECT  → ¿Quién puede descargar?
-DELETE  → ¿Quién puede eliminar?
+Usuario decide compartir:
+  └─ Pasaporte → Viaje a Japón ✓
+      └─ María lo vio (2 veces)
+      └─ Pedro lo vio (1 vez)
 ```
 
-### **Lógica de Caducidad**
+### **Auditoría**
 ```
-Si viaje caducado + documento sensible:
-  → Solo OWNER puede ver
-  → Miembros NO (privacidad automática)
+Sabes exactamente:
+  - Quién vio tu documento
+  - Cuándo lo vio
+  - En qué grupo lo vio
+  - Cuántas veces lo vio
+```
+
+### **Control Total**
+```
+En cualquier momento:
+  - Ocultar doc de un grupo
+  - Ocultar doc de TODOS los grupos
+  - Ver historial de accesos
+  - Re-compartir cuando quieras
+```
+
+---
+
+## 🔐 ARQUITECTURA:
+
+```
+┌─────────────────────────────────────────┐
+│ USUARIO (Juan)                           │
+│  └─ Mi Vault                             │
+│     ├─ Pasaporte.pdf                     │
+│     │  └─ Compartido en: 2 grupos        │
+│     │     └─ Visto por: 5 personas       │
+│     └─ DNI.pdf                           │
+│        └─ Compartido en: 0 grupos        │
+└─────────────────────────────────────────┘
+           │
+           │ Comparte con grupo
+           ↓
+┌─────────────────────────────────────────┐
+│ GRUPO: Viaje a Japón                     │
+│                                          │
+│ Documentos compartidos:                  │
+│  ├─ Juan: Pasaporte ✓                   │
+│  │   └─ [Ver] [Auditoría: 3 accesos]    │
+│  └─ María: DNI ✓                        │
+│      └─ [Ver] [Auditoría: 1 acceso]     │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
 ## ⏭️ SIGUIENTE:
 
-**Fase 9: Servicio de Documentos (Frontend)**
-- `documents.service.ts` para upload/download
+**Fase 9: Frontend del Vault**
+- Servicio `documents.service.ts`
 - Hooks `useDocuments` y `useDocumentUpload`
-- Progress tracking en uploads
+- Upload con progress bar
+- Gestión de shares
+
+**Fase 10: UI del Vault**
+- Tab "Mi Vault" en perfil
+- Tab "Documentos" en grupo
+- Modal subir documento
+- Modal auditoría
 
 ---
 
@@ -159,9 +226,10 @@ Si viaje caducado + documento sensible:
 
 👉 **Abre:** `INSTRUCCIONES_FASE_8.md`
 
-Para explicaciones detalladas, troubleshooting completo y diagramas de flujo.
+Para explicaciones paso a paso, conceptos detallados, troubleshooting y diagramas.
 
 ---
 
 **✅ Cuando termines, dime:** "Listo, completé la Fase 8"
 
+**⏱️ Tiempo total:** ~15 minutos
