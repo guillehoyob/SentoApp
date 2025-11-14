@@ -1,5 +1,6 @@
 import { Text, View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { useGroups } from '../../src/hooks/useGroups';
 import { Button } from '../../src/components/Button';
 import { isGroupExpired } from '../../src/services/groups.service';
@@ -7,6 +8,13 @@ import { isGroupExpired } from '../../src/services/groups.service';
 export default function GroupsScreen() {
   const router = useRouter();
   const { groups, loading, error, refreshGroups } = useGroups();
+
+  // Refrescar al volver a la pantalla
+  useFocusEffect(
+    useCallback(() => {
+      refreshGroups();
+    }, [refreshGroups])
+  );
 
   return (
     <View className="flex-1 bg-background">

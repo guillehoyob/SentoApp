@@ -14,7 +14,8 @@ import {
   ScrollView,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
+import * as Crypto from 'expo-crypto';
 import { supabase } from '../services/supabase';
 import { createPersonalDocument } from '../services/documents.service';
 import type { DocumentType } from '../types/documents.types';
@@ -38,6 +39,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
   const [title, setTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const handlePickDocument = async () => {
     try {
@@ -86,31 +88,30 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
 
     try {
       setUploading(true);
+      setUploadProgress('Preparando...');
 
       // Obtener usuario actual
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Usuario no autenticado');
 
       // Generar ID único para el documento
-      const documentId = crypto.randomUUID();
+      const documentId = Crypto.randomUUID();
       
       // Generar path para Storage
       const timestamp = Date.now();
       const extension = selectedFile.name.split('.').pop();
       const storagePath = `${userData.user.id}/${documentId}/${timestamp}.${extension}`;
 
-      // Leer el archivo como base64
-      const base64 = await FileSystem.readAsStringAsync(selectedFile.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      setUploadProgress('Leyendo archivo...');
+      // Usar la nueva API de File (expo-file-system)
+      const file = new File(selectedFile.uri);
+      
+      setUploadProgress('Procesando...');
+      // Leer el archivo como ArrayBuffer y convertir a Uint8Array
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
 
-      // Convertir base64 a Uint8Array
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
+      setUploadProgress('Subiendo a la nube...');
       // Subir a Storage
       const { error: uploadError } = await supabase.storage
         .from('documents')
@@ -121,6 +122,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
 
       if (uploadError) throw uploadError;
 
+      setUploadProgress('Guardando en base de datos...');
       // Crear registro en BD
       await createPersonalDocument({
         type: selectedType,
@@ -131,17 +133,20 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
         encrypted: false,
       });
 
+      setUploadProgress('¡Completado!');
       Alert.alert('¡Éxito!', 'Documento subido correctamente');
       
       // Reset y cerrar
       setSelectedType(null);
       setTitle('');
       setSelectedFile(null);
+      setUploadProgress('');
       onSuccess();
       onClose();
     } catch (error) {
       console.error('Error uploading document:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Error al subir documento');
+      setUploadProgress('');
     } finally {
       setUploading(false);
     }
@@ -152,6 +157,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
     setSelectedType(null);
     setTitle('');
     setSelectedFile(null);
+    setUploadProgress('');
     onClose();
   };
 
@@ -221,16 +227,25 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
           <TouchableOpacity
             onPress={handlePickDocument}
             disabled={uploading}
-            className="bg-white border-2 border-dashed border-neutral-300 rounded-lg p-6 items-center mb-4"
+            className={`border-2 border-dashed rounded-lg p-6 items-center mb-4 ${
+              selectedFile
+                ? 'bg-green-50 border-green-400'
+                : 'bg-white border-neutral-300'
+            }`}
           >
             {selectedFile ? (
               <>
-                <Text className="text-4xl mb-2">📎</Text>
-                <Text className="text-sm font-medium text-neutral-800 mb-1">
+                <View className="flex-row items-center mb-2">
+                  <Text className="text-4xl mr-2">📎</Text>
+                  <View className="w-8 h-8 bg-green-500 rounded-full items-center justify-center">
+                    <Text className="text-white text-xl font-bold">✓</Text>
+                  </View>
+                </View>
+                <Text className="text-sm font-semibold text-green-800 mb-1">
                   {selectedFile.name}
                 </Text>
-                <Text className="text-xs text-neutral-600">
-                  {(selectedFile.size! / 1024).toFixed(2)} KB
+                <Text className="text-xs text-green-700 font-medium">
+                  {(selectedFile.size! / 1024).toFixed(2)} KB • Listo para subir
                 </Text>
               </>
             ) : (
@@ -252,7 +267,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
               disabled={uploading}
               className="items-center mb-6"
             >
-              <Text className="text-sm text-primary-600 font-medium">Cambiar archivo</Text>
+              <Text className="text-sm text-primary-600 font-medium">🔄 Cambiar archivo</Text>
             </TouchableOpacity>
           )}
 
@@ -266,6 +281,11 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
 
         {/* Footer con botones */}
         <View className="bg-white border-t border-neutral-200 px-6 py-4">
+          {uploading && uploadProgress && (
+            <Text className="text-center text-sm text-neutral-600 mb-2">
+              {uploadProgress}
+            </Text>
+          )}
           <TouchableOpacity
             onPress={handleUpload}
             disabled={uploading || !selectedType || !title.trim() || !selectedFile}
@@ -276,7 +296,10 @@ export function UploadDocumentModal({ visible, onClose, onSuccess }: UploadDocum
             }`}
           >
             {uploading ? (
-              <ActivityIndicator color="#fff" />
+              <View className="flex-row items-center">
+                <ActivityIndicator color="#fff" />
+                <Text className="text-white font-semibold text-base ml-2">Subiendo...</Text>
+              </View>
             ) : (
               <Text className="text-white font-semibold text-base">Subir Documento</Text>
             )}

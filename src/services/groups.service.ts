@@ -138,6 +138,8 @@ export async function getMyGroups(): Promise<Group[]> {
  * Obtiene un grupo por ID
  */
 export async function getGroupById(id: string): Promise<Group | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
   const { data, error } = await supabase
     .from('groups')
     .select(`
@@ -161,7 +163,13 @@ export async function getGroupById(id: string): Promise<Group | null> {
     throw new Error(error.message || 'Error al obtener el grupo');
   }
 
-  return data as Group;
+  // Añadir propiedad is_owner
+  const group = data as Group;
+  if (user) {
+    group.is_owner = group.owner_id === user.id;
+  }
+
+  return group;
 }
 
 /**

@@ -28,6 +28,8 @@ export interface Group {
   // Relaciones populadas
   members?: GroupMember[];
   owner?: Profile;
+  // Propiedades calculadas
+  is_owner?: boolean;
 }
 
 export interface CreateGroupInput {
@@ -47,4 +49,5 @@ export interface UpdateGroupInput {
   destination?: string | null;
   notes?: string | null;
 }
+
 

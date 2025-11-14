@@ -13,26 +13,44 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { supabase } from '../../src/services/supabase';
 import { useDocuments } from '../../src/hooks/useDocuments';
 import { useAccessRequests } from '../../src/hooks/useAccessRequests';
 import { Button } from '../../src/components/Button';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { UploadDocumentModal } from '../../src/components/UploadDocumentModal';
 import { ShareDocumentModal } from '../../src/components/ShareDocumentModal';
+import { EditDocumentModalFull } from '../../src/components/EditDocumentModalFull';
+import * as Clipboard from 'expo-clipboard';
 import {
   getDocumentTypeLabel,
   getShareTypeLabel,
   formatFileSize,
   daysUntilExpiration,
+  downloadAndOpenDocument,
+  hideDocumentFromGroup,
+  showDocumentInGroup,
+  deletePersonalDocument,
 } from '../../src/services/documents.service';
+
+const FIELD_TEMPLATES: Record<string, string[]> = {
+  passport: ['Número', 'Fecha Expedición', 'Fecha Caducidad', 'País'],
+  id_card: ['Número', 'Fecha Expedición', 'Fecha Caducidad'],
+  insurance: ['Nº Póliza', 'Proveedor', 'Fecha Caducidad', 'Tel. Emergencia'],
+  license: ['Número', 'Clase', 'Fecha Caducidad', 'País'],
+  other: [],
+};
 
 export default function VaultScreen() {
   const { documents, loading, error, refreshing, refresh, reload } = useDocuments();
   const { requests, pendingCount } = useAccessRequests();
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [selectedDocForShare, setSelectedDocForShare] = useState<{ id: string; title: string } | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedDocForEdit, setSelectedDocForEdit] = useState<any>(null);
 
   if (loading && !refreshing) {
     return (
@@ -63,6 +81,26 @@ export default function VaultScreen() {
         <Text className="text-sm font-body text-neutral-600">
           {documents.length} documento{documents.length !== 1 && 's'}
         </Text>
+
+      {/* Botón Logs */}
+      <TouchableOpacity
+        onPress={() => router.push('/(authenticated)/document-logs')}
+        className="mt-3 bg-neutral-100 px-4 py-2 rounded-lg flex-row items-center"
+      >
+        <Text className="text-xl mr-2">📊</Text>
+        <Text className="text-sm font-body text-neutral-700 flex-1">Ver logs de acceso</Text>
+        <Text className="text-sm font-semibold text-neutral-600">→</Text>
+      </TouchableOpacity>
+
+      {/* Botón Solicitudes */}
+      <TouchableOpacity
+        onPress={() => router.push('/(authenticated)/access-requests')}
+        className="mt-2 bg-primary-100 px-4 py-2 rounded-lg flex-row items-center"
+      >
+        <Text className="text-xl mr-2">📥</Text>
+        <Text className="text-sm font-body text-primary-700 flex-1">Ver solicitudes pendientes</Text>
+        <Text className="text-sm font-semibold text-primary-600">→</Text>
+      </TouchableOpacity>
 
         {/* Badge de solicitudes pendientes */}
         {pendingCount > 0 && (
@@ -180,30 +218,91 @@ export default function VaultScreen() {
                             return (
                               <View
                                 key={idx}
-                                className="flex-row items-center justify-between py-2 border-b border-neutral-200"
+                                className="py-2 border-b border-neutral-200"
                               >
-                                <View className="flex-1">
-                                  <Text className="text-sm font-medium text-neutral-800">
-                                    {share.group_name}
-                                  </Text>
-                                  <Text className="text-xs text-neutral-600">
-                                    {getShareTypeLabel(share.share_type)}
-                                    {daysLeft !== null && ` • ${daysLeft}d restantes`}
-                                  </Text>
-                                </View>
-                                <View
-                                  className={`px-2 py-1 rounded ${
-                                    isVisible ? 'bg-green-100' : 'bg-neutral-200'
-                                  }`}
-                                >
-                                  <Text
-                                    className={`text-xs font-semibold ${
-                                      isVisible ? 'text-green-700' : 'text-neutral-600'
+                                <View className="flex-row items-center justify-between mb-2">
+                                  <View className="flex-1">
+                                    <Text className="text-sm font-medium text-neutral-800">
+                                      {share.group_name}
+                                    </Text>
+                                    <Text className="text-xs text-neutral-600">
+                                      {getShareTypeLabel(share.share_type)}
+                                      {daysLeft !== null && ` • ${daysLeft}d restantes`}
+                                    </Text>
+                                  </View>
+                                  <View
+                                    className={`px-2 py-1 rounded ${
+                                      isVisible ? 'bg-green-100' : 'bg-neutral-200'
                                     }`}
                                   >
-                                    {isVisible ? 'Visible' : 'Oculto'}
-                                  </Text>
+                                    <Text
+                                      className={`text-xs font-semibold ${
+                                        isVisible ? 'text-green-700' : 'text-neutral-600'
+                                      }`}
+                                    >
+                                      {isVisible ? 'Visible' : 'Oculto'}
+                                    </Text>
+                                  </View>
                                 </View>
+                                {/* Botón para ocultar/mostrar */}
+                                {isVisible ? (
+                                  <TouchableOpacity
+                                    onPress={async () => {
+                                      Alert.alert(
+                                        'Ocultar documento',
+                                        `¿Ocultar "${doc.title}" del grupo "${share.group_name}"?`,
+                                        [
+                                          { text: 'Cancelar', style: 'cancel' },
+                                          {
+                                            text: 'Ocultar',
+                                            style: 'destructive',
+                                            onPress: async () => {
+                                              try {
+                                                await hideDocumentFromGroup(doc.id, share.group_id);
+                                                Alert.alert('¡Éxito!', 'Documento ocultado');
+                                                reload();
+                                              } catch (error) {
+                                                Alert.alert(
+                                                  'Error',
+                                                  error instanceof Error
+                                                    ? error.message
+                                                    : 'Error al ocultar'
+                                                );
+                                              }
+                                            },
+                                          },
+                                        ]
+                                      );
+                                    }}
+                                    className="bg-orange-50 px-3 py-2 rounded border border-orange-200"
+                                  >
+                                    <Text className="text-xs font-semibold text-orange-700 text-center">
+                                      👁️‍🗨️ Ocultar de este grupo
+                                    </Text>
+                                  </TouchableOpacity>
+                                ) : (
+                                  <TouchableOpacity
+                                    onPress={async () => {
+                                      try {
+                                        await showDocumentInGroup(doc.id, share.group_id);
+                                        Alert.alert('¡Éxito!', 'Documento visible de nuevo');
+                                        reload();
+                                      } catch (error) {
+                                        Alert.alert(
+                                          'Error',
+                                          error instanceof Error
+                                            ? error.message
+                                            : 'Error al mostrar'
+                                        );
+                                      }
+                                    }}
+                                    className="bg-green-50 px-3 py-2 rounded border border-green-200"
+                                  >
+                                    <Text className="text-xs font-semibold text-green-700 text-center">
+                                      👁️ Mostrar de nuevo
+                                    </Text>
+                                  </TouchableOpacity>
+                                )}
                               </View>
                             );
                           })}
@@ -214,8 +313,81 @@ export default function VaultScreen() {
                         </Text>
                       )}
 
+                      {/* Campos del documento */}
+                      {FIELD_TEMPLATES[doc.type]?.length > 0 && (
+                        <View className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
+                          <Text className="text-sm font-semibold text-neutral-700 mb-2">📋 Campos</Text>
+                          {FIELD_TEMPLATES[doc.type].map((fieldName) => {
+                            const value = doc.fields?.[fieldName] || '';
+                            return (
+                              <View key={fieldName} className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+                                <View className="flex-1 mr-3">
+                                  <Text className="text-xs text-neutral-500">{fieldName}</Text>
+                                  <Text className="text-sm text-neutral-800">{value || '(vacío)'}</Text>
+                                </View>
+                                {value && (
+                                  <TouchableOpacity
+                                    onPress={async () => {
+                                      await Clipboard.setStringAsync(value);
+                                      Alert.alert('Copiado', `${fieldName} copiado`);
+                                    }}
+                                    className="bg-neutral-100 px-3 py-2 rounded"
+                                  >
+                                    <Text className="text-xs">📋</Text>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+
+                      {/* Archivos */}
+                      {doc.files && doc.files.length > 0 && (
+                        <View className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
+                          <Text className="text-sm font-semibold text-neutral-700 mb-2">📎 Archivos ({doc.files.length})</Text>
+                          {doc.files.map((file: any) => (
+                            <TouchableOpacity
+                              key={file.id}
+                              onPress={async () => {
+                                try {
+                                  const WebBrowser = require('expo-web-browser');
+                                  const { data } = await supabase.storage
+                                    .from('documents')
+                                    .createSignedUrl(file.storage_path, 3600);
+                                  if (!data?.signedUrl) throw new Error('Error');
+                                  await WebBrowser.openBrowserAsync(data.signedUrl);
+                                } catch (error) {
+                                  Alert.alert('Error', error instanceof Error ? error.message : 'Error');
+                                }
+                              }}
+                              className="flex-row items-center py-2 border-b border-neutral-100"
+                            >
+                              <Text className="text-2xl mr-3">
+                                {file.mime_type.includes('pdf') ? '📄' : '🖼️'}
+                              </Text>
+                              <View className="flex-1">
+                                <Text className="text-sm font-medium text-neutral-800">{file.file_name}</Text>
+                                <Text className="text-xs text-neutral-500">{formatFileSize(file.size_bytes)}</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Editar */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedDocForEdit(doc);
+                          setEditModalVisible(true);
+                        }}
+                        className="bg-neutral-200 py-3 rounded-lg items-center mb-3"
+                      >
+                        <Text className="text-neutral-700 font-semibold">✏️ Editar Todo</Text>
+                      </TouchableOpacity>
+
                       {/* Acciones */}
-                      <View className="flex-row space-x-2">
+                      <View className="flex-row space-x-2 mb-3">
                         <TouchableOpacity
                           onPress={() => {
                             setSelectedDocForShare({ id: doc.id, title: doc.title });
@@ -234,6 +406,41 @@ export default function VaultScreen() {
                           <Text className="text-neutral-700 font-semibold">Ver logs</Text>
                         </TouchableOpacity>
                       </View>
+
+                      {/* Botón: Eliminar documento */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          Alert.alert(
+                            'Eliminar documento',
+                            `¿Estás seguro de eliminar "${doc.title}"?\n\n⚠️ Esta acción:\n• Eliminará el documento de TODOS los grupos\n• Borrará el archivo permanentemente\n• NO se puede deshacer`,
+                            [
+                              { text: 'Cancelar', style: 'cancel' },
+                              {
+                                text: 'Eliminar',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  try {
+                                    await deletePersonalDocument(doc.id);
+                                    Alert.alert('¡Eliminado!', 'Documento eliminado correctamente');
+                                    reload();
+                                    setExpandedDoc(null); // Colapsar
+                                  } catch (error) {
+                                    Alert.alert(
+                                      'Error',
+                                      error instanceof Error
+                                        ? error.message
+                                        : 'Error al eliminar'
+                                    );
+                                  }
+                                },
+                              },
+                            ]
+                          );
+                        }}
+                        className="bg-red-100 py-3 rounded-lg items-center border border-red-300"
+                      >
+                        <Text className="text-red-700 font-semibold">🗑️ Eliminar Documento</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -276,6 +483,19 @@ export default function VaultScreen() {
           onClose={() => {
             setShareModalVisible(false);
             setSelectedDocForShare(null);
+          }}
+          onSuccess={() => reload()}
+        />
+      )}
+
+      {/* Modal de editar completo */}
+      {selectedDocForEdit && (
+        <EditDocumentModalFull
+          visible={editModalVisible}
+          document={selectedDocForEdit}
+          onClose={() => {
+            setEditModalVisible(false);
+            setSelectedDocForEdit(null);
           }}
           onSuccess={() => reload()}
         />

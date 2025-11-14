@@ -94,34 +94,14 @@ export function useGroups() {
     try {
       setError(null);
       
-      // Optimistic update: crear grupo temporal
-      const tempGroup: Group = {
-        id: `temp-${Date.now()}`,
-        owner_id: '',
-        name: data.name,
-        type: data.type,
-        start_date: data.start_date,
-        end_date: data.end_date,
-        destination: data.destination,
-        notes: data.notes,
-        created_at: new Date().toISOString(),
-      };
-
-      setGroups(prev => [tempGroup, ...prev]);
-
-      // Crear en servidor
+      // Crear en servidor (sin optimistic update para evitar problemas)
       const newGroup = await groupsService.createGroup(data);
       
-      // Reemplazar grupo temporal con el real
-      setGroups(prev => prev.map(g => g.id === tempGroup.id ? newGroup : g));
-      
-      // Actualizar cache
+      // Actualizar cache inmediatamente
       await refreshGroups();
       
       return newGroup;
     } catch (err) {
-      // Revertir optimistic update
-      await refreshGroups();
       const errorMessage = err instanceof Error ? err.message : 'Error al crear el grupo';
       setError(errorMessage);
       throw err;

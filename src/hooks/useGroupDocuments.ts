@@ -33,12 +33,13 @@ export function useGroupDocuments(groupId: string) {
     }
   }, [groupId]);
 
-  // Refrescar
+  // Refrescar (reload completo, fuerza actualización)
   const refresh = useCallback(async () => {
     if (!groupId) return;
 
     try {
       setRefreshing(true);
+      setLoading(true);
       setError(null);
       const docs = await getGroupSharedDocuments(groupId);
       setDocuments(docs);
@@ -47,6 +48,7 @@ export function useGroupDocuments(groupId: string) {
       setError(message);
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
   }, [groupId]);
 

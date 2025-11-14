@@ -140,19 +140,152 @@ export async function hideDocumentFromGroup(
 }
 
 /**
- * Revocar todos los shares de un documento
+ * Mostrar documento de nuevo en un grupo
  */
-export async function revokeAllShares(documentId: string): Promise<number> {
-  const { data, error } = await supabase.rpc('revoke_all_shares', {
+export async function showDocumentInGroup(
+  documentId: string,
+  groupId: string
+): Promise<void> {
+  const { error } = await supabase.rpc('show_document_in_group', {
+    p_document_id: documentId,
+    p_group_id: groupId,
+  });
+
+  if (error) {
+    console.error('Error showing document:', error);
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Eliminar documento completamente (BD + Storage)
+ */
+export async function deletePersonalDocument(documentId: string): Promise<void> {
+  // Llamar RPC que elimina shares, requests y el documento de la BD
+  const { data, error } = await supabase.rpc('delete_personal_document', {
     p_document_id: documentId,
   });
 
   if (error) {
-    console.error('Error revoking shares:', error);
+    console.error('Error deleting document:', error);
     throw new Error(error.message);
   }
 
+  // Eliminar archivo de Storage
+  if (data?.storage_path) {
+    const { error: storageError } = await supabase.storage
+      .from('documents')
+      .remove([data.storage_path]);
+
+    if (storageError) {
+      console.error('Error deleting from storage:', storageError);
+      // No lanzamos error aquí porque el documento ya se eliminó de la BD
+    }
+  }
+}
+
+export async function revokeAllShares(documentId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('revoke_all_shares', {
+    p_document_id: documentId,
+  });
+  if (error) throw new Error(error.message);
   return data?.groups_affected || 0;
+}
+
+export async function updateDocumentFields(documentId: string, fields: Record<string, string>): Promise<void> {
+  const { error } = await supabase.rpc('update_document_fields', {
+    p_document_id: documentId,
+    p_fields: fields,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function updateDocumentInfo(documentId: string, title: string, type: string): Promise<void> {
+  const { error } = await supabase.rpc('update_document_info', {
+    p_document_id: documentId,
+    p_title: title,
+    p_type: type,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function addDocumentFile(
+  documentId: string,
+  storagePath: string,
+  fileName: string,
+  mimeType: string,
+  sizeBytes: number
+): Promise<void> {
+  const { error } = await supabase.rpc('add_document_file', {
+    p_document_id: documentId,
+    p_storage_path: storagePath,
+    p_file_name: fileName,
+    p_mime_type: mimeType,
+    p_size_bytes: sizeBytes,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteDocumentFile(fileId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('delete_document_file', {
+    p_file_id: fileId,
+  });
+  if (error) throw new Error(error.message);
+  
+  // Eliminar de storage
+  const storagePath = data?.storage_path;
+  if (storagePath) {
+    await supabase.storage.from('documents').remove([storagePath]);
+  }
+  
+  return storagePath;
+}
+
+export async function updateDocumentFileName(fileId: string, newName: string): Promise<void> {
+  const { error } = await supabase
+    .from('document_files')
+    .update({ file_name: newName })
+    .eq('id', fileId);
+  
+  if (error) throw new Error(error.message);
+}
+
+export async function updateDocumentShare(
+  shareId: string,
+  permissionType?: string,
+  expiresAt?: string,
+  startsAt?: string
+): Promise<void> {
+  const { error } = await supabase.rpc('update_document_share', {
+    p_share_id: shareId,
+    p_permission_type: permissionType,
+    p_expires_at: expiresAt,
+    p_starts_at: startsAt,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteDocumentShare(shareId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_document_share', {
+    p_share_id: shareId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function requestDocumentsFromGroup(
+  groupId: string,
+  docTypes: string[],
+  userIds?: string[],
+  message?: string
+): Promise<{ requests_created: number }> {
+  const { data, error } = await supabase.rpc('request_documents_from_group', {
+    p_group_id: groupId,
+    p_doc_types: docTypes,
+    p_user_ids: userIds,
+    p_message: message,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 // ===================================================================
@@ -572,5 +705,20 @@ export function getShareTypeLabel(shareType: string): string {
     scheduled: 'Programado',
   };
   return labels[shareType] || shareType;
+}
+
+export async function downloadAndOpenDocument(
+  documentId: string,
+  groupId: string,
+  title: string
+): Promise<void> {
+  const WebBrowser = require('expo-web-browser');
+
+  try {
+    const signedUrl = await getDocumentUrl(documentId, groupId);
+    await WebBrowser.openBrowserAsync(signedUrl);
+  } catch (error) {
+    throw error;
+  }
 }
 

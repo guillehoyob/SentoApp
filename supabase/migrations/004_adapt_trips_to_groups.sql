@@ -224,3 +224,4 @@ COMMENT ON COLUMN groups.end_date IS 'Fecha de fin (obligatoria para trips, NULL
 
 COMMIT;
 
+

@@ -1,18 +1,51 @@
 import { useState, useEffect } from 'react';
 import { Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useCallback as useCallbackReact } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import { useGroup } from '../../src/hooks/useGroup';
 import { useGroupDocuments } from '../../src/hooks/useGroupDocuments';
 import { Button } from '../../src/components/Button';
 import { TextInputComponent } from '../../src/components/TextInput';
 import { ShareInviteModal } from '../../src/components/ShareInviteModal';
-import { getDocumentTypeLabel, formatFileSize, daysUntilExpiration } from '../../src/services/documents.service';
+import { RequestDocumentsModal } from '../../src/components/RequestDocumentsModal';
+import { supabase } from '../../src/services/supabase';
+import { getDocumentTypeLabel, formatFileSize, daysUntilExpiration, downloadAndOpenDocument } from '../../src/services/documents.service';
+
+const FIELD_TEMPLATES: Record<string, string[]> = {
+  passport: ['Número', 'Fecha Expedición', 'Fecha Caducidad', 'País'],
+  id_card: ['Número', 'Fecha Expedición', 'Fecha Caducidad'],
+  insurance: ['Nº Póliza', 'Proveedor', 'Fecha Caducidad', 'Tel. Emergencia'],
+  license: ['Número', 'Clase', 'Fecha Caducidad', 'País'],
+  other: [],
+};
 
 export default function GroupDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { group, loading, error, expired, updateGroup, deleteGroup } = useGroup(id || '');
-  const { documents: groupDocuments, loading: loadingDocs } = useGroupDocuments(id || '');
+  const { documents: groupDocuments, loading: loadingDocs, reload: reloadDocs } = useGroupDocuments(id || '');
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+  const [requirements, setRequirements] = useState<any[]>([]);
+  const [requestModalVisible, setRequestModalVisible] = useState(false);
+
+  // Recargar documentos al volver a la pantalla
+  useFocusEffect(
+    useCallbackReact(() => {
+      if (id) {
+        reloadDocs();
+        // Cargar requisitos
+        supabase.rpc('get_group_requirements', { p_group_id: id }).then(({ data, error }) => {
+          if (error) {
+            console.error('Error loading requirements:', error);
+          } else {
+            console.log('Requirements loaded:', data);
+            setRequirements(data || []);
+          }
+        });
+      }
+    }, [id, reloadDocs])
+  );
   
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -289,16 +322,67 @@ export default function GroupDetailScreen() {
               </View>
             )}
 
+            {/* Requisitos de documentos */}
+            <View className="bg-yellow-50 rounded-2xl p-lg border-2 border-yellow-200">
+              <View className="flex-row items-center justify-between mb-3">
+                <View className="flex-row items-center flex-1">
+                  <Text className="text-2xl mr-2">📋</Text>
+                  <Text className="font-body-semibold text-base text-neutral-900">Documentos Requeridos</Text>
+                </View>
+                {group.is_owner && (
+                  <TouchableOpacity
+                    onPress={() => Alert.alert('Editar requisitos', 'Próximamente')}
+                    className="bg-yellow-200 px-3 py-1 rounded"
+                  >
+                    <Text className="text-xs font-semibold text-yellow-800">✏️ Editar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {requirements.length === 0 ? (
+                <Text className="text-sm text-neutral-600 text-center py-2">
+                  No hay requisitos configurados
+                </Text>
+              ) : (
+                requirements.map((req: any, idx: number) => (
+                  <View key={idx} className="flex-row items-center py-2 border-b border-yellow-100">
+                    <Text className="text-xl mr-2">
+                      {req.doc_type === 'passport' ? '🛂' : 
+                       req.doc_type === 'id_card' ? '🪪' : 
+                       req.doc_type === 'insurance' ? '🏥' : 
+                       req.doc_type === 'license' ? '🚗' : '📄'}
+                    </Text>
+                    <Text className="flex-1 text-sm text-neutral-700">
+                      {req.doc_type === 'passport' ? 'Pasaporte' : 
+                       req.doc_type === 'id_card' ? 'DNI/Cédula' : 
+                       req.doc_type === 'insurance' ? 'Seguro' : 
+                       req.doc_type === 'license' ? 'Licencia' : 'Documento'}
+                    </Text>
+                    <View className={`px-2 py-1 rounded ${req.is_required ? 'bg-red-100' : 'bg-yellow-100'}`}>
+                      <Text className={`text-xs font-semibold ${req.is_required ? 'text-red-700' : 'text-yellow-700'}`}>
+                        {req.is_required ? 'Obligatorio' : 'Opcional'}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+
             {/* Card de documentos compartidos */}
             <View className="bg-card rounded-2xl p-lg shadow-md">
               <View className="flex-row items-center justify-between mb-md">
-                <View>
+                <View className="flex-1">
                   <Text className="font-body-medium text-sm text-neutral-500 mb-xs">Documentos Compartidos</Text>
                   <Text className="font-body-semibold text-xl text-text-primary">
                     {groupDocuments?.length || 0}
                   </Text>
                 </View>
-                <Text className="text-[32px]">📄</Text>
+                <TouchableOpacity
+                  onPress={() => setRequestModalVisible(true)}
+                  className="bg-primary-100 px-3 py-2 rounded-lg ml-2"
+                >
+                  <Text className="text-xs font-semibold text-primary-700">📥 Solicitar</Text>
+                </TouchableOpacity>
+                <Text className="text-[32px] ml-2">📄</Text>
               </View>
               
               {loadingDocs ? (
@@ -307,53 +391,130 @@ export default function GroupDetailScreen() {
                 <View className="gap-sm">
                   {groupDocuments.map((doc) => {
                     const daysLeft = daysUntilExpiration(doc.expires_at);
+                    const isVisible = doc.is_visible && (daysLeft === null || daysLeft > 0);
                     const canAccess = doc.can_access && (daysLeft === null || daysLeft > 0);
+                    const isExpanded = expandedDocId === doc.id;
                     
                     return (
                       <View 
                         key={doc.id}
-                        className="bg-neutral-50 p-md rounded-lg border border-neutral-200"
+                        className="bg-neutral-50 rounded-xl border border-neutral-200 overflow-hidden"
                       >
-                        <View className="flex-row items-start justify-between mb-xs">
-                          <View className="flex-1 mr-sm">
-                            <View className="flex-row items-center mb-1">
-                              <Text className="text-base mr-1">
-                                {doc.type === 'passport' ? '🛂' : 
-                                 doc.type === 'id_card' ? '🪪' : 
-                                 doc.type === 'insurance' ? '🏥' : 
-                                 doc.type === 'license' ? '🚗' : '📄'}
+                        {/* Header - Clickeable */}
+                        <TouchableOpacity
+                          onPress={() => setExpandedDocId(isExpanded ? null : doc.id)}
+                          className="p-4"
+                        >
+                          <View className="flex-row items-start justify-between">
+                            <View className="flex-1 mr-3">
+                              <View className="flex-row items-center mb-1">
+                                <Text className="text-2xl mr-2">
+                                  {doc.type === 'passport' ? '🛂' : 
+                                   doc.type === 'id_card' ? '🪪' : 
+                                   doc.type === 'insurance' ? '🏥' : 
+                                   doc.type === 'license' ? '🚗' : '📄'}
+                                </Text>
+                                <Text className="text-base font-semibold text-neutral-900 flex-1">
+                                  {doc.title}
+                                </Text>
+                              </View>
+                              <Text className="text-sm text-neutral-600 font-body">
+                                {doc.owner_name || 'Usuario'}
                               </Text>
-                              <Text className="font-body-semibold text-sm text-neutral-900 flex-1">
-                                {doc.title}
+                              <Text className="text-sm text-neutral-600 font-body">
+                                {getDocumentTypeLabel(doc.type)}
                               </Text>
                             </View>
-                            <Text className="font-body text-xs text-neutral-600">
-                              {doc.owner.full_name || doc.owner.email}
-                            </Text>
-                            <Text className="font-body text-xs text-neutral-500">
-                              {getDocumentTypeLabel(doc.type)} • {formatFileSize(doc.size_bytes)}
-                            </Text>
+                            <View className={`px-2 py-1 rounded ${isVisible ? 'bg-green-100' : 'bg-neutral-200'}`}>
+                              <Text className={`text-xs font-semibold ${isVisible ? 'text-green-700' : 'text-neutral-600'}`}>
+                                {isVisible ? '✓ Visible' : '🔒 Oculto'}
+                              </Text>
+                            </View>
                           </View>
-                          <View className={`px-2 py-1 rounded ${canAccess ? 'bg-green-100' : 'bg-neutral-200'}`}>
-                            <Text className={`text-xs font-semibold ${canAccess ? 'text-green-700' : 'text-neutral-600'}`}>
-                              {canAccess ? '✓ Visible' : '🔒 Oculto'}
-                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Detalles expandidos */}
+                        {isExpanded && (
+                          <View className="border-t border-neutral-200 p-4 bg-neutral-50">
+                            {daysLeft !== null && daysLeft > 0 && (
+                              <Text className="font-body text-xs text-neutral-500 mb-3">
+                                ⏳ Expira en {daysLeft} día{daysLeft !== 1 ? 's' : ''}
+                              </Text>
+                            )}
+
+                            {/* Campos del documento */}
+                            {canAccess && FIELD_TEMPLATES[doc.type]?.length > 0 && (
+                          <View className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
+                            <Text className="text-sm font-semibold text-neutral-700 mb-2">📋 Campos</Text>
+                            {FIELD_TEMPLATES[doc.type].map((fieldName) => {
+                              const value = doc.fields?.[fieldName] || '';
+                              return (
+                                <View key={fieldName} className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+                                  <View className="flex-1 mr-3">
+                                    <Text className="text-xs text-neutral-500">{fieldName}</Text>
+                                    <Text className="text-sm text-neutral-800">{value || '(vacío)'}</Text>
+                                  </View>
+                                  {value && (
+                                    <TouchableOpacity
+                                      onPress={async () => {
+                                        await Clipboard.setStringAsync(value);
+                                        Alert.alert('Copiado', `${fieldName} copiado`);
+                                      }}
+                                      className="bg-neutral-100 px-3 py-2 rounded"
+                                    >
+                                      <Text className="text-xs">📋</Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                              );
+                            })}
                           </View>
-                        </View>
-                        {daysLeft !== null && daysLeft > 0 && (
-                          <Text className="font-body text-xs text-neutral-500">
-                            ⏳ Expira en {daysLeft} día{daysLeft !== 1 ? 's' : ''}
-                          </Text>
                         )}
-                        {!canAccess && (
-                          <TouchableOpacity
-                            onPress={() => Alert.alert('Solicitar acceso', 'Función en desarrollo')}
-                            className="mt-sm bg-primary-100 py-2 rounded items-center"
-                          >
-                            <Text className="font-body-medium text-xs text-primary-700">
-                              Solicitar acceso
-                            </Text>
-                          </TouchableOpacity>
+
+                        {/* Archivos */}
+                        {canAccess && doc.files && doc.files.length > 0 && (
+                          <View className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
+                            <Text className="text-sm font-semibold text-neutral-700 mb-2">📎 Archivos ({doc.files.length})</Text>
+                            {doc.files.map((file: any) => (
+                              <TouchableOpacity
+                                key={file.id}
+                                onPress={async () => {
+                                  try {
+                                    const WebBrowser = require('expo-web-browser');
+                                    const { data } = await supabase.storage
+                                      .from('documents')
+                                      .createSignedUrl(file.storage_path, 3600);
+                                    if (!data?.signedUrl) throw new Error('Error');
+                                    await WebBrowser.openBrowserAsync(data.signedUrl);
+                                  } catch (error) {
+                                    Alert.alert('Error', error instanceof Error ? error.message : 'Error');
+                                  }
+                                }}
+                                className="flex-row items-center py-2 border-b border-neutral-100"
+                              >
+                                <Text className="text-2xl mr-3">
+                                  {file.mime_type.includes('pdf') ? '📄' : '🖼️'}
+                                </Text>
+                                <View className="flex-1">
+                                  <Text className="text-sm font-medium text-neutral-800">{file.file_name}</Text>
+                                  <Text className="text-xs text-neutral-500">{formatFileSize(file.size_bytes)}</Text>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+
+                            {!canAccess && (
+                              <TouchableOpacity
+                                onPress={() => Alert.alert('Solicitar acceso', 'Función en desarrollo')}
+                                className="mt-sm bg-primary-100 py-2 rounded items-center"
+                              >
+                                <Text className="font-body-medium text-xs text-primary-700">
+                                  Solicitar acceso
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         )}
                       </View>
                     );
@@ -401,6 +562,18 @@ export default function GroupDetailScreen() {
               groupName={group.name}
               visible={showInviteModal}
               onClose={() => setShowInviteModal(false)}
+            />
+
+            {/* Modal solicitar documentos */}
+            <RequestDocumentsModal
+              visible={requestModalVisible}
+              groupId={id || ''}
+              groupName={group.name}
+              onClose={() => setRequestModalVisible(false)}
+              onSuccess={() => {
+                setRequestModalVisible(false);
+                Alert.alert('¡Enviado!', 'Solicitudes enviadas');
+              }}
             />
           </View>
         );

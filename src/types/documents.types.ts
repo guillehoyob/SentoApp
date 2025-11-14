@@ -27,6 +27,15 @@ export type DocumentAction =
 // DOCUMENTO PERSONAL
 // ===================================================================
 
+export interface DocumentFile {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  file_order: number;
+}
+
 export interface UserDocument {
   id: string;
   owner_id: string;
@@ -37,7 +46,8 @@ export interface UserDocument {
   mime_type: string;
   size_bytes: number;
   created_at: string;
-  // Incluye información de shares (del backend)
+  fields?: Record<string, string>;
+  files?: DocumentFile[];
   shared_in?: DocumentShareInfo[];
 }
 
