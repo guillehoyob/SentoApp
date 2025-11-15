@@ -1,16 +1,43 @@
 # Sento - App de Gestión de Grupos y Viajes
 
-**React Native + Expo SDK 54 + Supabase + TypeScript + NativeWind**
+**React Native + Expo SDK 54 + Supabase + TypeScript + NativeWind + Gluestack UI v2**
 
 Sistema completo de gestión de grupos/viajes con **Vault Inteligente** para documentos personales.
 
 ---
 
-## 🚀 Quick Start
+## 📖 ¿Primera vez instalando el proyecto?
+
+### 🚀 **[LEE ESTO PRIMERO: Guía de Instalación Completa](./SETUP_GUIDE.md)**
+
+**La guía incluye:**
+- ✅ Instalación paso a paso de Git y Node.js (Windows y Mac)
+- ✅ Clonar el repositorio y cambiar a la rama correcta
+- ✅ Instalar todas las dependencias
+- ✅ Configurar variables de entorno
+- ✅ Ejecutar la app y ver el QR
+- ✅ Solución de problemas comunes
+- ✅ Outputs esperados en cada paso
+
+**👉 [Abrir guía completa](./SETUP_GUIDE.md)**
+
+---
+
+## 🚀 Quick Start (si ya tienes todo instalado)
 
 ```bash
+# Clona y entra al proyecto
+git clone https://github.com/guillehoyob/SentoApp.git
+cd SentoApp
+
+# Cambia a la rama development (importante!)
+git checkout development
+
+# Instala dependencias
 npm install
-npm start
+
+# Inicia el servidor
+npx expo start --clear
 ```
 
 Escanea el QR con **Expo Go** en tu móvil.
@@ -183,15 +210,31 @@ npm start
 
 | Categoría | Tecnología | Versión |
 |-----------|-----------|---------|
-| **Framework** | React Native | - |
-| **Build** | Expo | SDK 54 |
-| **Routing** | Expo Router | v4 |
-| **Language** | TypeScript | 5.x |
-| **Backend** | Supabase | - |
+| **Framework** | React Native | 0.74.5 |
+| **Build** | Expo | SDK 51 |
+| **Routing** | Expo Router | 3.5.23 |
+| **Language** | TypeScript | 5.3 |
+| **UI Components** | Gluestack UI v2 | Latest |
+| **Backend** | Supabase | Latest |
 | **Database** | PostgreSQL | - |
-| **Styling** | NativeWind | v2.0.11 |
-| **CSS Framework** | Tailwind CSS | v3.3 |
+| **Styling** | NativeWind | v4.2.1 |
+| **CSS Framework** | Tailwind CSS | v3.4.18 |
 | **Fonts** | Playfair Display (Google) + General Sans (local) | - |
+
+### 🎨 Demo de Gluestack UI v2
+
+El proyecto incluye una **demo completa** de Gluestack UI v2. Componentes instalados:
+
+- **Button** - 411 líneas de código, con variantes `solid`, `outline`, `link` y estados
+- **Input** - 218 líneas, con validación y slots para iconos
+- **Badge** - 215 líneas, con múltiples acciones y tamaños
+
+**Para ver la demo:** Abre la app → Busca el botón **"Gluestack UI Demo" 🎨** en la pantalla principal
+
+Los componentes fueron instalados con:
+```bash
+npx gluestack-ui add button input badge
+```
 
 ---
 
