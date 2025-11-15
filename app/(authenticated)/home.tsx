@@ -111,6 +111,24 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* Botón Gluestack Demo */}
+          <TouchableOpacity
+            className="bg-purple-500 rounded-2xl p-xl shadow-lg"
+            onPress={() => router.push('/(authenticated)/gluestack-demo')}
+            activeOpacity={0.8}
+          >
+            <View className="flex-row items-center mb-sm">
+              <Text className="text-[32px] mr-md">🎨</Text>
+              <Text className="font-body-semibold text-xl text-white flex-1">
+                Gluestack UI Demo
+              </Text>
+              <Text className="text-white text-xl">→</Text>
+            </View>
+            <Text className="font-body text-base text-white/90">
+              Ver componentes de NativeWind v4
+            </Text>
+          </TouchableOpacity>
+
           {/* Botón de testing (solo desarrollo) */}
           <TouchableOpacity
             className="bg-neutral-200 rounded-2xl p-xl border-2 border-neutral-300 border-dashed"

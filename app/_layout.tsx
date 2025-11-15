@@ -1,3 +1,4 @@
+import '../global.css';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
