@@ -110,6 +110,24 @@ export default function HomeScreen() {
               Gestiona tus documentos personales
             </Text>
           </TouchableOpacity>
+
+          {/* Botón de testing (solo desarrollo) */}
+          <TouchableOpacity
+            className="bg-neutral-200 rounded-2xl p-xl border-2 border-neutral-300 border-dashed"
+            onPress={() => router.push('/(authenticated)/test-join')}
+            activeOpacity={0.8}
+          >
+            <View className="flex-row items-center mb-sm">
+              <Text className="text-[32px] mr-md">🧪</Text>
+              <Text className="font-body-semibold text-xl text-neutral-700 flex-1">
+                Test: Unirse a Grupo
+              </Text>
+              <Text className="text-neutral-500 text-xl">→</Text>
+            </View>
+            <Text className="font-body text-base text-neutral-600">
+              Pegar groupId + token para testing
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Info adicional */}

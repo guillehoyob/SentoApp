@@ -56,82 +56,20 @@ export async function createGroup(data: CreateGroupInput): Promise<Group> {
 
 /**
  * Obtiene todos los grupos del usuario actual
+ * Usa RPC para evitar problemas con RLS
  */
 export async function getMyGroups(): Promise<Group[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error('Usuario no autenticado');
+  const { data, error } = await supabase.rpc('get_my_groups_complete');
+
+  if (error) {
+    throw new Error(error.message || 'Error al obtener los grupos');
   }
 
-  // Obtener grupos donde el usuario es owner
-  const { data: ownedGroups, error: ownedError } = await supabase
-    .from('groups')
-    .select(`
-      *,
-      owner:profiles!owner_id(id, email, full_name),
-      members:group_members(
-        group_id,
-        user_id,
-        role,
-        joined_at,
-        user:profiles!group_members_user_id_fkey(id, email, full_name)
-      )
-    `)
-    .eq('owner_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (ownedError) {
-    throw new Error(ownedError.message || 'Error al obtener los grupos');
+  if (!data) {
+    return [];
   }
 
-  // Obtener IDs de grupos donde el usuario es miembro
-  const { data: membershipData, error: membershipError } = await supabase
-    .from('group_members')
-    .select('group_id')
-    .eq('user_id', user.id);
-
-  if (membershipError) {
-    throw new Error(membershipError.message || 'Error al obtener membresías');
-  }
-
-  // Si hay grupos donde es miembro (pero no owner), cargarlos
-  let memberGroups: any[] = [];
-  if (membershipData && membershipData.length > 0) {
-    const memberGroupIds = membershipData
-      .map(m => m.group_id)
-      .filter(id => !ownedGroups?.some(g => g.id === id)); // Excluir los que ya tiene como owner
-
-    if (memberGroupIds.length > 0) {
-      const { data: memberGroupsData, error: memberGroupsError } = await supabase
-        .from('groups')
-        .select(`
-          *,
-          owner:profiles!owner_id(id, email, full_name),
-          members:group_members(
-            group_id,
-            user_id,
-            role,
-            joined_at,
-            user:profiles!group_members_user_id_fkey(id, email, full_name)
-          )
-        `)
-        .in('id', memberGroupIds)
-        .order('created_at', { ascending: false });
-
-      if (!memberGroupsError && memberGroupsData) {
-        memberGroups = memberGroupsData;
-      }
-    }
-  }
-
-  // Combinar owned + member groups
-  const allGroups = [...(ownedGroups || []), ...memberGroups];
-  
-  // Ordenar por fecha de creación
-  allGroups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-  return allGroups as Group[];
+  return (typeof data === 'string' ? JSON.parse(data) : data) as Group[];
 }
 
 /**
@@ -140,6 +78,11 @@ export async function getMyGroups(): Promise<Group[]> {
 export async function getGroupById(id: string): Promise<Group | null> {
   const { data: { user } } = await supabase.auth.getUser();
   
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  // Usar maybeSingle() para evitar error de RLS
   const { data, error } = await supabase
     .from('groups')
     .select(`
@@ -154,20 +97,41 @@ export async function getGroupById(id: string): Promise<Group | null> {
       )
     `)
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      return null; // No encontrado
-    }
+    console.error('Error getting group:', error);
     throw new Error(error.message || 'Error al obtener el grupo');
+  }
+
+  if (!data) {
+    // RLS bloqueó o no existe - verificar si es miembro
+    const { data: isMember } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('group_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (isMember) {
+      // Es miembro pero RLS bloqueó - usar RPC
+      const { data: groupData, error: rpcError } = await supabase.rpc('get_group_by_id_for_member', {
+        p_group_id: id
+      });
+      
+      if (rpcError || !groupData) {
+        return null;
+      }
+      
+      return groupData as Group;
+    }
+    
+    return null; // No encontrado o sin permisos
   }
 
   // Añadir propiedad is_owner
   const group = data as Group;
-  if (user) {
-    group.is_owner = group.owner_id === user.id;
-  }
+  group.is_owner = group.owner_id === user.id;
 
   return group;
 }

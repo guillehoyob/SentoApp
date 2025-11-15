@@ -58,14 +58,10 @@ export function ShareInviteModal({ groupId, groupName, visible, onClose }: Share
     const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
     
     try {
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        Alert.alert('WhatsApp no disponible', 'Instala WhatsApp para compartir por esta vía');
-      }
+      // Intentar abrir WhatsApp directamente (sin canOpenURL que falla con custom schemes)
+      await Linking.openURL(whatsappUrl);
     } catch (error) {
-      Alert.alert('Error', 'No se pudo abrir WhatsApp');
+      Alert.alert('WhatsApp no disponible', 'Instala WhatsApp para compartir por esta vía');
     }
   };
 
@@ -178,27 +174,64 @@ export function ShareInviteModal({ groupId, groupName, visible, onClose }: Share
                 </Text>
               </View>
 
-              {/* BOTÓN DE PRUEBA PARA DESARROLLO */}
-              <TouchableOpacity
-                className="mt-md bg-neutral-200 rounded-xl py-md items-center"
-                onPress={() => {
-                  // Extraer groupId y token del URL
-                  const match = inviteUrl.match(/invite\/([^?]+)\?t=(.+)/);
-                  if (match) {
-                    const [, testGroupId, testToken] = match;
-                    console.log('🧪 TESTING - GroupId:', testGroupId);
-                    console.log('🧪 TESTING - Token:', testToken);
-                    
-                    // Navegar directamente a la pantalla de join
-                    onClose();
-                    router.push(`/(authenticated)/join?groupId=${testGroupId}&token=${testToken}`);
-                  }
-                }}
-              >
-                <Text className="font-body-medium text-sm text-neutral-700">
-                  🧪 Simular invitación (testing)
-                </Text>
-              </TouchableOpacity>
+              {/* BOTONES DE TESTING */}
+              <View className="mt-lg">
+                <TouchableOpacity
+                  className="bg-neutral-200 rounded-xl py-md items-center mb-sm"
+                  onPress={() => {
+                    // Extraer groupId y token del URL
+                    const match = inviteUrl.match(/invite\/([^?]+)\?t=(.+)/);
+                    if (match) {
+                      const [, testGroupId, testToken] = match;
+                      console.log('🧪 TESTING - GroupId:', testGroupId);
+                      console.log('🧪 TESTING - Token:', testToken);
+                      
+                      // Navegar directamente a la pantalla de join
+                      onClose();
+                      router.push(`/(authenticated)/join?groupId=${testGroupId}&token=${testToken}`);
+                    }
+                  }}
+                >
+                  <Text className="font-body-medium text-sm text-neutral-700">
+                    🧪 Simular invitación (testing)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="bg-blue-100 rounded-xl py-md items-center"
+                  onPress={() => {
+                    const match = inviteUrl.match(/invite\/([^?]+)\?t=(.+)/);
+                    if (match) {
+                      const [, testGroupId, testToken] = match;
+                      Alert.alert(
+                        '📋 Datos para Test Join',
+                        `Copia cada uno por separado:\n\n1️⃣ Group ID\n2️⃣ Token`,
+                        [
+                          { 
+                            text: '1️⃣ Group ID', 
+                            onPress: async () => {
+                              await Clipboard.setStringAsync(testGroupId);
+                              Alert.alert('✅ Copiado', 'Group ID en portapapeles');
+                            }
+                          },
+                          { 
+                            text: '2️⃣ Token', 
+                            onPress: async () => {
+                              await Clipboard.setStringAsync(testToken);
+                              Alert.alert('✅ Copiado', 'Token en portapapeles (sin espacios)');
+                            }
+                          },
+                          { text: 'Cancelar', style: 'cancel' }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <Text className="font-body-medium text-sm text-blue-700">
+                    📋 Copiar Group ID y Token
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>

@@ -30,6 +30,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="create-group" />
       <Stack.Screen name="group-detail" />
       <Stack.Screen name="join" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="test-join" options={{ presentation: 'modal' }} />
       <Stack.Screen name="vault" options={{ presentation: 'modal' }} />
       <Stack.Screen name="document-logs" options={{ presentation: 'modal' }} />
       <Stack.Screen name="access-requests" options={{ presentation: 'modal' }} />
