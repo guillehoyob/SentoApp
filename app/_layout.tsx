@@ -11,6 +11,7 @@ import {
   PlayfairDisplay_700Bold,
   PlayfairDisplay_700Bold_Italic,
 } from '@expo-google-fonts/playfair-display';
+import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -135,7 +136,11 @@ export default function RootLayout() {
     );
   }
 
-  return <RootLayoutNav />;
+  return (
+    <GluestackUIProvider mode="light">
+      <RootLayoutNav />
+    </GluestackUIProvider>
+  );
 }
 
 const styles = StyleSheet.create({
