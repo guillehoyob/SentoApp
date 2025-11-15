@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actualizar Edge Function - Sento</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2d3748; margin-top: 0; }
+        h2 { color: #4a5568; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+        .step {
+            background: #edf2f7;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 12px 0;
+        }
+        .code-box {
+            background: #1a202c;
+            color: #68d391;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .warning {
+            background: #fff5f5;
+            border-left: 4px solid #f56565;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        .success {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        button {
+            background: #3182ce;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 12px;
+        }
+        button:hover {
+            background: #2c5282;
+        }
+        .link {
+            color: #3182ce;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔗 Actualizar Edge Function: generate-invite</h1>
+        <p><strong>Problema:</strong> Los links de invitación generan URLs <code>https://</code> en vez de <code>sento://</code></p>
+        <p><strong>Solución:</strong> Cambiar 1 línea en el Edge Function</p>
+    </div>
+
+    <div class="card">
+        <h2>📋 Opción 1: Editar en Supabase Dashboard (Recomendado)</h2>
+        
+        <div class="step">
+            <strong>Paso 1:</strong> Abre este link:
+            <br><br>
+            <a class="link" href="https://supabase.com/dashboard/project/iybjzqtiispacfmmynsx/functions/generate-invite/details" target="_blank">
+                https://supabase.com/dashboard/project/iybjzqtiispacfmmynsx/functions/generate-invite/details
+            </a>
+        </div>
+
+        <div class="step">
+            <strong>Paso 2:</strong> En la página que se abre:
+            <ul>
+                <li>Busca la pestaña <strong>"Code"</strong> o <strong>"Source"</strong></li>
+                <li>Si no ves pestañas, busca botón <strong>"Edit"</strong> o <strong>"New version"</strong></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>Paso 3:</strong> En el editor de código, presiona <strong>CTRL+F</strong> y busca:
+            <div class="code-box" style="background: #fff3cd; color: #856404; margin-top: 12px;">
+const deepLink = `https://iybjzqtiispacfmmynsx.supabase.co/invite/${group_id}?t=${inviteToken}`;
+            </div>
+        </div>
+
+        <div class="step">
+            <strong>Paso 4:</strong> Reemplaza ESA línea por:
+            <div class="code-box" style="margin-top: 12px;">
+const deepLink = `sento://invite/${group_id}?t=${inviteToken}`;
+            </div>
+            <button onclick="copyToClipboard('sento://invite/${group_id}?t=${inviteToken}')">
+                📋 Copiar línea corregida
+            </button>
+        </div>
+
+        <div class="step">
+            <strong>Paso 5:</strong> Clic en el botón verde <strong>"Deploy"</strong> (arriba a la derecha)
+        </div>
+
+        <div class="success">
+            <strong>✅ Verificar:</strong> Después de deploy, genera una nueva invitación en la app. 
+            Debe mostrar <code>sento://invite/...</code> en vez de <code>https://</code>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📋 Opción 2: Si no encuentras el editor</h2>
+        
+        <div class="warning">
+            <strong>⚠️ Nota:</strong> Esta opción requiere más pasos pero funciona siempre
+        </div>
+
+        <div class="step">
+            <strong>Paso 1:</strong> Ve a:
+            <br><br>
+            <a class="link" href="https://supabase.com/dashboard/project/iybjzqtiispacfmmynsx/functions" target="_blank">
+                Lista de Functions
+            </a>
+        </div>
+
+        <div class="step">
+            <strong>Paso 2:</strong> Busca botón <strong>"Create a new function"</strong> o <strong>"+"</strong>
+        </div>
+
+        <div class="step">
+            <strong>Paso 3:</strong> Pon nombre: <code>generate-invite-v2</code>
+        </div>
+
+        <div class="step">
+            <strong>Paso 4:</strong> Abre el archivo:
+            <div class="code-box" style="background: #edf2f7; color: #2d3748; margin-top: 12px;">
+C:\Users\ghoyo\Desktop\app_composer\generate-invite-CORREGIDO.ts
+            </div>
+        </div>
+
+        <div class="step">
+            <strong>Paso 5:</strong> Copia TODO el contenido y pégalo en el editor de Supabase
+        </div>
+
+        <div class="step">
+            <strong>Paso 6:</strong> Deploy
+        </div>
+
+        <div class="step">
+            <strong>Paso 7:</strong> En tu código, cambia el nombre de la función:
+            <br>
+            <code>src/services/invites.service.ts</code> línea donde llama a <code>generate-invite</code>
+            <br>
+            Cambiar a: <code>generate-invite-v2</code>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🎯 Resultado Esperado</h2>
+        
+        <p><strong>ANTES (❌ No funciona):</strong></p>
+        <div class="code-box" style="background: #fff5f5; color: #c53030;">
+https://iybjzqtiispacfmmynsx.supabase.co/invite/abc123?t=eyJhbGc...
+        </div>
+
+        <p><strong>DESPUÉS (✅ Funciona):</strong></p>
+        <div class="code-box">
+sento://invite/abc123?t=eyJhbGc...
+        </div>
+
+        <div class="success">
+            <p><strong>✅ Cuando esto funcione:</strong></p>
+            <ul>
+                <li>Los links <code>sento://</code> abrirán tu app automáticamente</li>
+                <li>Android/iOS capturarán el intent</li>
+                <li>La app navegará a la pantalla de join</li>
+                <li>El usuario podrá unirse al grupo</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(text) {
+            const el = document.createElement('textarea');
+            el.value = 'const deepLink = `' + text + '`;';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert('✅ Copiado al portapapeles!');
+        }
+    </script>
+</body>
+</html>
+

@@ -29,17 +29,20 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   useEffect(() => {
+    // Verificar sesión persistida al iniciar
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
+      // Manejar todos los eventos de autenticación
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+        } else {
+          setUser(null);
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
       }
       
       setLoading(false);
@@ -69,10 +72,16 @@ export function useAuth(): UseAuthReturn {
       const response = await authService.signIn(params);
       if (response.user) {
         setUser(response.user);
+        setLoading(false);
+        // Pequeño delay para asegurar que el estado se propaga
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } else {
+        setLoading(false);
       }
       return { error: response.error };
-    } finally {
+    } catch (error) {
       setLoading(false);
+      return { error: { message: 'Error inesperado al iniciar sesión', code: 'UNEXPECTED_ERROR' } };
     }
   }, []);
 

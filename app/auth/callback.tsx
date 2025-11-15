@@ -13,12 +13,12 @@ export default function AuthCallback() {
       if (session) {
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
-          router.replace('/');
+          router.push('/(authenticated)/home');
         } else {
-          router.replace('/auth/login');
+          router.push('/auth/sign-in');
         }
       } else {
-        router.replace('/auth/login');
+        router.push('/auth/sign-in');
       }
     };
 
