@@ -3,15 +3,19 @@ import { Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Ref
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useCallback as useCallbackReact } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { useGroup } from '../../src/hooks/useGroup';
+import { useSharedDocuments } from '../../src/hooks/useSharedDocuments';
 import { useGroupDocuments } from '../../src/hooks/useGroupDocuments';
 import { Button } from '../../src/components/Button';
 import { TextInputComponent } from '../../src/components/TextInput';
 import { ShareInviteModal } from '../../src/components/ShareInviteModal';
 import { RequestDocumentsModal } from '../../src/components/RequestDocumentsModal';
+import { CreateGroupDocumentModal } from '../../src/components/CreateGroupDocumentModal';
 import { supabase } from '../../src/services/supabase';
 import { getSectionsForDocumentType, FIELD_LABELS } from '../../src/constants/documentFieldsSections';
 import { getDocumentTypeLabel, formatFileSize, daysUntilExpiration, downloadAndOpenDocument } from '../../src/services/documents.service';
+import { getGroupDocumentFileUrl, GROUP_DOCUMENT_TYPES, deleteGroupDocument } from '../../src/services/groupDocuments.service';
 
 const FIELD_TEMPLATES: Record<string, string[]> = {
   // Tipos antiguos
@@ -40,17 +44,21 @@ export default function GroupDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { group, loading, error, expired, updateGroup, deleteGroup } = useGroup(id || '');
-  const { documents: groupDocuments, loading: loadingDocs, reload: reloadDocs } = useGroupDocuments(id || '');
+  const { documents: sharedDocuments, loading: loadingSharedDocs, reload: reloadSharedDocs } = useSharedDocuments(id || '');
+  const { documents: groupDocs, loading: loadingGroupDocs, reload: reloadGroupDocs } = useGroupDocuments(id || '');
+  const [activeTab, setActiveTab] = useState<'shared' | 'group'>('shared');
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<any[]>([]);
   const [requestModalVisible, setRequestModalVisible] = useState(false);
+  const [createGroupDocModalVisible, setCreateGroupDocModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Recargar documentos al volver a la pantalla
   useFocusEffect(
     useCallbackReact(() => {
       if (id) {
-        reloadDocs();
+        reloadSharedDocs();
+        reloadGroupDocs();
         // Cargar requisitos
         supabase.rpc('get_group_requirements', { p_group_id: id }).then(({ data, error }) => {
           if (error) {
@@ -61,10 +69,10 @@ export default function GroupDetailScreen() {
           }
         });
       }
-    }, [id, reloadDocs])
+    }, [id, reloadSharedDocs, reloadGroupDocs])
   );
 
-  // Real-time subscription para cambios en document_shares
+  // Real-time subscription para cambios en document_shares y group_documents
   useEffect(() => {
     if (!id) return;
 
@@ -82,9 +90,20 @@ export default function GroupDetailScreen() {
         },
         (payload) => {
           console.log('📡 Cambio detectado en document_shares:', payload.eventType, payload);
-          
-          // Recargar documentos automáticamente
-          reloadDocs();
+          reloadSharedDocs();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'group_documents',
+          filter: `group_id=eq.${id}`
+        },
+        (payload) => {
+          console.log('📡 Cambio detectado en group_documents:', payload.eventType, payload);
+          reloadGroupDocs();
         }
       )
       .subscribe((status) => {
@@ -96,14 +115,15 @@ export default function GroupDetailScreen() {
       console.log('🔴 Desuscribiéndose de cambios en tiempo real');
       supabase.removeChannel(channel);
     };
-  }, [id, reloadDocs]);
+  }, [id, reloadSharedDocs, reloadGroupDocs]);
 
   // Pull-to-refresh handler
   const onRefresh = useCallbackReact(async () => {
     setRefreshing(true);
     try {
       // Recargar documentos
-      await reloadDocs();
+      await reloadSharedDocs();
+      await reloadGroupDocs();
       
       // Recargar requisitos
       const { data, error } = await supabase.rpc('get_group_requirements', { p_group_id: id });
@@ -115,7 +135,7 @@ export default function GroupDetailScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [id, reloadDocs]);
+  }, [id, reloadSharedDocs, reloadGroupDocs]);
   
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
@@ -448,29 +468,58 @@ export default function GroupDetailScreen() {
               )}
             </View>
 
-            {/* Card de documentos compartidos */}
+            {/* Card de documentos con TABS */}
             <View className="bg-card rounded-2xl p-lg shadow-md">
-              <View className="flex-row items-center justify-between mb-md">
-                <View className="flex-1">
-                  <Text className="font-body-medium text-sm text-neutral-500 mb-xs">Documentos Compartidos</Text>
-                  <Text className="font-body-semibold text-xl text-text-primary">
-                    {groupDocuments?.length || 0}
-                  </Text>
-                </View>
+              {/* TABS */}
+              <View className="flex-row mb-md border-b border-neutral-200">
                 <TouchableOpacity
-                  onPress={() => setRequestModalVisible(true)}
-                  className="bg-primary-100 px-3 py-2 rounded-lg ml-2"
+                  onPress={() => setActiveTab('shared')}
+                  className={`flex-1 pb-sm ${activeTab === 'shared' ? 'border-b-2 border-primary' : ''}`}
                 >
-                  <Text className="text-xs font-semibold text-primary-700">📥 Solicitar</Text>
+                  <Text className={`text-center font-body-semibold text-sm ${activeTab === 'shared' ? 'text-primary' : 'text-neutral-500'}`}>
+                    📤 Compartidos ({sharedDocuments?.length || 0})
+                  </Text>
                 </TouchableOpacity>
-                <Text className="text-[32px] ml-2">📄</Text>
+                <TouchableOpacity
+                  onPress={() => setActiveTab('group')}
+                  className={`flex-1 pb-sm ${activeTab === 'group' ? 'border-b-2 border-primary' : ''}`}
+                >
+                  <Text className={`text-center font-body-semibold text-sm ${activeTab === 'group' ? 'text-primary' : 'text-neutral-500'}`}>
+                    📁 Del Grupo ({groupDocs?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Botones de acción según el tab activo */}
+              <View className="flex-row items-center justify-between mb-md">
+                <Text className="font-body-medium text-sm text-neutral-500">
+                  {activeTab === 'shared' ? 'Documentos personales compartidos' : 'Documentos del grupo/viaje'}
+                </Text>
+                {activeTab === 'shared' ? (
+                  <TouchableOpacity
+                    onPress={() => setRequestModalVisible(true)}
+                    className="bg-primary-100 px-3 py-2 rounded-lg"
+                  >
+                    <Text className="text-xs font-semibold text-primary-700">📥 Solicitar</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setCreateGroupDocModalVisible(true)}
+                    className="bg-primary px-3 py-2 rounded-lg"
+                  >
+                    <Text className="text-xs font-semibold text-white">➕ Crear</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               
-              {loadingDocs ? (
-                <ActivityIndicator color="#FF5050" className="my-md" />
-              ) : groupDocuments && groupDocuments.length > 0 ? (
-                <View className="gap-sm">
-                  {groupDocuments.map((doc) => {
+              {/* Contenido del TAB COMPARTIDOS */}
+              {activeTab === 'shared' && (
+                <>
+                  {loadingSharedDocs ? (
+                    <ActivityIndicator color="#FF5050" className="my-md" />
+                  ) : sharedDocuments && sharedDocuments.length > 0 ? (
+                    <View className="gap-sm">
+                      {sharedDocuments.map((doc) => {
                     const daysLeft = daysUntilExpiration(doc.expires_at);
                     const isVisible = doc.is_visible && (daysLeft === null || daysLeft > 0);
                     const canAccess = doc.can_access && (daysLeft === null || daysLeft > 0);
@@ -719,6 +768,197 @@ export default function GroupDetailScreen() {
                   </Text>
                 </View>
               )}
+                </>
+              )}
+
+              {/* Contenido del TAB GRUPO */}
+              {activeTab === 'group' && (
+                <>
+                  {loadingGroupDocs ? (
+                    <ActivityIndicator color="#FF5050" className="my-md" />
+                  ) : groupDocs && groupDocs.length > 0 ? (
+                    <View className="gap-sm">
+                      {groupDocs.map((doc) => {
+                        const isExpanded = expandedDocId === doc.id;
+                        
+                        return (
+                          <View 
+                            key={doc.id}
+                            className="bg-blue-50 rounded-xl border border-blue-200 overflow-hidden"
+                          >
+                            {/* Header - Clickeable */}
+                            <TouchableOpacity
+                              onPress={() => setExpandedDocId(isExpanded ? null : doc.id)}
+                              className="p-4"
+                            >
+                              <View className="flex-row items-start justify-between">
+                                <View className="flex-1 mr-3">
+                                  <View className="flex-row items-center mb-1">
+                                    <Text className="text-2xl mr-2">
+                                      {doc.type === 'itinerary' ? '🗺️' :
+                                       doc.type === 'booking' ? '🏨' :
+                                       doc.type === 'ticket' ? '🎫' :
+                                       doc.type === 'insurance' ? '🛡️' :
+                                       doc.type === 'contract' ? '📝' :
+                                       doc.type === 'invoice' ? '🧾' :
+                                       doc.type === 'receipt' ? '🧾' :
+                                       doc.type === 'map' ? '🗺️' :
+                                       doc.type === 'guide' ? '📖' :
+                                       doc.type === 'emergency' ? '🚨' : '📄'}
+                                    </Text>
+                                    <Text className="text-base font-semibold text-neutral-900 flex-1">
+                                      {doc.title}
+                                    </Text>
+                                  </View>
+                                  <Text className="text-sm text-blue-700 font-body">
+                                    Subido por: {doc.uploader?.full_name || 'Usuario'}
+                                  </Text>
+                                  <Text className="text-xs text-neutral-500 font-body mt-1">
+                                    {new Date(doc.created_at).toLocaleDateString('es-ES')}
+                                  </Text>
+                                  {doc.tagged_users && doc.tagged_users.length > 0 && (
+                                    <View className="flex-row items-center mt-1">
+                                      <Text className="text-xs text-blue-600 font-body">
+                                        👥 {doc.tagged_users.length} etiquetado{doc.tagged_users.length !== 1 ? 's' : ''}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <View className="items-end">
+                                  <View className="bg-blue-100 px-2 py-1 rounded mb-1">
+                                    <Text className="text-xs font-semibold text-blue-700">
+                                      {GROUP_DOCUMENT_TYPES[doc.type as keyof typeof GROUP_DOCUMENT_TYPES] || doc.type}
+                                    </Text>
+                                  </View>
+                                  {doc.files && doc.files.length > 0 && (
+                                    <View className="flex-row items-center">
+                                      <Text className="text-xs text-neutral-500">
+                                        📎 {doc.files.length} archivo{doc.files.length !== 1 ? 's' : ''}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+
+                            {/* Detalles expandidos */}
+                            {isExpanded && (
+                              <View className="border-t border-blue-200 p-4 bg-blue-50">
+                                {/* Descripción */}
+                                {doc.description && (
+                                  <View className="mb-3 bg-white rounded-lg p-3 border border-blue-100">
+                                    <Text className="text-xs text-neutral-500 mb-1">📝 Descripción</Text>
+                                    <Text className="text-sm text-neutral-800">{doc.description}</Text>
+                                  </View>
+                                )}
+
+                                {/* Usuarios etiquetados */}
+                                {doc.tagged_users && Array.isArray(doc.tagged_users) && doc.tagged_users.length > 0 && (
+                                  <View className="mb-3 bg-white rounded-lg p-3 border border-blue-100">
+                                    <Text className="text-xs text-neutral-500 mb-2">👥 Etiquetados ({doc.tagged_users.length})</Text>
+                                    {group.members
+                                      ?.filter(m => doc.tagged_users.includes(m.user_id))
+                                      .map(member => (
+                                        <View key={member.user_id} className="flex-row items-center py-1">
+                                          <Text className="text-xs mr-2">👤</Text>
+                                          <Text className="text-sm text-neutral-800">
+                                            {member.user.full_name || member.user.email}
+                                          </Text>
+                                        </View>
+                                      ))
+                                    }
+                                    {doc.tagged_users.length > 0 && (!group.members?.some(m => doc.tagged_users.includes(m.user_id))) && (
+                                      <Text className="text-sm text-neutral-800">
+                                        {doc.tagged_users.length} participante{doc.tagged_users.length !== 1 ? 's' : ''}
+                                      </Text>
+                                    )}
+                                  </View>
+                                )}
+
+                                {/* Archivos */}
+                                {doc.files && doc.files.length > 0 && (
+                                  <View className="mb-3 bg-white rounded-lg p-3 border border-blue-100">
+                                    <Text className="text-sm font-semibold text-neutral-700 mb-2">📎 Archivos ({doc.files.length})</Text>
+                                    {doc.files.map((file: any) => (
+                                      <TouchableOpacity
+                                        key={file.id}
+                                        onPress={async () => {
+                                          try {
+                                            const url = await getGroupDocumentFileUrl(file.storage_path);
+                                            await WebBrowser.openBrowserAsync(url);
+                                          } catch (error) {
+                                            Alert.alert('Error', error instanceof Error ? error.message : 'Error al abrir archivo');
+                                          }
+                                        }}
+                                        className="flex-row items-center py-2 border-b border-blue-50"
+                                      >
+                                        <Text className="text-2xl mr-3">
+                                          {file.mime_type.includes('pdf') ? '📄' : 
+                                           file.mime_type.includes('image') ? '🖼️' : '📎'}
+                                        </Text>
+                                        <View className="flex-1">
+                                          <Text className="text-sm font-medium text-neutral-800">{file.file_name}</Text>
+                                          <Text className="text-xs text-neutral-500">{formatFileSize(file.size_bytes)}</Text>
+                                        </View>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </View>
+                                )}
+
+                                {/* Botones de acción */}
+                                <View className="flex-row gap-2 mt-2">
+                                  <TouchableOpacity
+                                    onPress={() => Alert.alert('Editar', 'Función en desarrollo')}
+                                    className="flex-1 bg-blue-100 py-2 rounded items-center"
+                                  >
+                                    <Text className="font-body-medium text-xs text-blue-700">✏️ Editar</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    onPress={async () => {
+                                      Alert.alert(
+                                        'Eliminar documento',
+                                        '¿Estás seguro?',
+                                        [
+                                          { text: 'Cancelar', style: 'cancel' },
+                                          {
+                                            text: 'Eliminar',
+                                            style: 'destructive',
+                                            onPress: async () => {
+                                              try {
+                                                await deleteGroupDocument(doc.id);
+                                                Alert.alert('Éxito', 'Documento eliminado');
+                                                reloadGroupDocs();
+                                              } catch (error) {
+                                                Alert.alert('Error', error instanceof Error ? error.message : 'Error');
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      );
+                                    }}
+                                    className="flex-1 bg-red-100 py-2 rounded items-center"
+                                  >
+                                    <Text className="font-body-medium text-xs text-red-700">🗑️ Eliminar</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <View className="py-md">
+                      <Text className="font-body text-sm text-neutral-600 text-center mb-2">
+                        No hay documentos del grupo todavía
+                      </Text>
+                      <Text className="font-body text-xs text-neutral-500 text-center">
+                        Crea el primero usando el botón "➕ Crear"
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
             </View>
 
             {/* Card de notas */}
@@ -765,6 +1005,19 @@ export default function GroupDetailScreen() {
               onSuccess={() => {
                 setRequestModalVisible(false);
                 Alert.alert('¡Enviado!', 'Solicitudes enviadas');
+              }}
+            />
+
+            {/* Modal crear documento de grupo */}
+            <CreateGroupDocumentModal
+              visible={createGroupDocModalVisible}
+              groupId={id || ''}
+              groupMembers={group.members}
+              onClose={() => setCreateGroupDocModalVisible(false)}
+              onSuccess={() => {
+                setCreateGroupDocModalVisible(false);
+                Alert.alert('¡Creado!', 'Documento del grupo creado exitosamente');
+                reloadGroupDocs();
               }}
             />
           </View>
