@@ -161,7 +161,25 @@ export async function showDocumentInGroup(
  * Eliminar documento completamente (BD + Storage)
  */
 export async function deletePersonalDocument(documentId: string): Promise<void> {
-  // Llamar RPC que elimina shares, requests y el documento de la BD
+  // 1. Obtener archivos asociados desde document_files
+  const { data: files, error: filesError } = await supabase
+    .from('document_files')
+    .select('storage_path')
+    .eq('document_id', documentId);
+
+  // 2. Eliminar archivos de Storage
+  if (files && files.length > 0) {
+    const paths = files.map(f => f.storage_path);
+    const { error: storageError } = await supabase.storage
+      .from('documents')
+      .remove(paths);
+
+    if (storageError) {
+      console.error('Error deleting from storage:', storageError);
+    }
+  }
+
+  // 3. Llamar RPC que elimina shares, requests, files y el documento de la BD
   const { data, error } = await supabase.rpc('delete_personal_document', {
     p_document_id: documentId,
   });
@@ -169,18 +187,6 @@ export async function deletePersonalDocument(documentId: string): Promise<void> 
   if (error) {
     console.error('Error deleting document:', error);
     throw new Error(error.message);
-  }
-
-  // Eliminar archivo de Storage
-  if (data?.storage_path) {
-    const { error: storageError } = await supabase.storage
-      .from('documents')
-      .remove([data.storage_path]);
-
-    if (storageError) {
-      console.error('Error deleting from storage:', storageError);
-      // No lanzamos error aquí porque el documento ya se eliminó de la BD
-    }
   }
 }
 

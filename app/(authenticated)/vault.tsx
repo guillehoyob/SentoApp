@@ -18,10 +18,11 @@ import { useDocuments } from '../../src/hooks/useDocuments';
 import { useAccessRequests } from '../../src/hooks/useAccessRequests';
 import { Button } from '../../src/components/Button';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
-import { UploadDocumentModal } from '../../src/components/UploadDocumentModal';
+import { UploadDocumentModalV2 } from '../../src/components/UploadDocumentModalV2';
 import { ShareDocumentModal } from '../../src/components/ShareDocumentModal';
 import { EditDocumentModalFull } from '../../src/components/EditDocumentModalFull';
 import * as Clipboard from 'expo-clipboard';
+import { getSectionsForDocumentType, FIELD_LABELS } from '../../src/constants/documentFieldsSections';
 import {
   getDocumentTypeLabel,
   getShareTypeLabel,
@@ -33,11 +34,27 @@ import {
   deletePersonalDocument,
 } from '../../src/services/documents.service';
 
+// Plantillas actualizadas para mostrar campos
 const FIELD_TEMPLATES: Record<string, string[]> = {
-  passport: ['Número', 'Fecha Expedición', 'Fecha Caducidad', 'País'],
+  // Tipos antiguos
+  passport: ['numero', 'apellidos', 'nombres', 'fechaNacimiento', 'nacionalidad', 'fechaExpedicion', 'fechaCaducidad'],
   id_card: ['Número', 'Fecha Expedición', 'Fecha Caducidad'],
   insurance: ['Nº Póliza', 'Proveedor', 'Fecha Caducidad', 'Tel. Emergencia'],
   license: ['Número', 'Clase', 'Fecha Caducidad', 'País'],
+  // Nuevos tipos (DNI/NIE/TIE)
+  DNI: ['numero', 'nombre', 'apellido1', 'apellido2', 'sexo', 'fechaNacimiento', 'nacionalidad', 'numeroSoporte', 'fechaExpedicion', 'fechaCaducidad', 'domicilio', 'municipio', 'provincia'],
+  NIE: ['numero', 'nombre', 'apellido1', 'apellido2', 'sexo', 'fechaNacimiento', 'nacionalidad', 'numeroSoporte', 'fechaExpedicion', 'fechaCaducidad', 'domicilio', 'municipio', 'provincia'],
+  TIE: ['numero', 'nombre', 'apellido1', 'apellido2', 'sexo', 'fechaNacimiento', 'nacionalidad', 'tipoAutorizacion', 'numeroSoporte', 'fechaExpedicion', 'fechaCaducidad', 'fechaInicioAutorizacion', 'fechaFinAutorizacion', 'domicilio', 'municipio', 'provincia'],
+  // Otros
+  health: [],
+  driving: [],
+  financial: [],
+  education: [],
+  professional: [],
+  travel: [],
+  legal: [],
+  property: [],
+  identification: [],
   other: [],
 };
 
@@ -172,14 +189,34 @@ export default function VaultScreen() {
                       <View className="flex-1 mr-3">
                         <View className="flex-row items-center mb-1">
                           <Text className="text-2xl mr-2">
-                            {doc.type === 'passport'
+                            {doc.type === 'passport' || doc.type === 'Pasaporte'
                               ? '🛂'
+                              : doc.type === 'DNI' || doc.type === 'NIE' || doc.type === 'TIE'
+                              ? '🪪'
                               : doc.type === 'id_card'
                               ? '🪪'
+                              : doc.type === 'health'
+                              ? '🏥'
                               : doc.type === 'insurance'
                               ? '🏥'
+                              : doc.type === 'driving'
+                              ? '🚗'
                               : doc.type === 'license'
                               ? '🚗'
+                              : doc.type === 'financial'
+                              ? '💳'
+                              : doc.type === 'education'
+                              ? '🎓'
+                              : doc.type === 'professional'
+                              ? '💼'
+                              : doc.type === 'travel'
+                              ? '✈️'
+                              : doc.type === 'legal'
+                              ? '⚖️'
+                              : doc.type === 'property'
+                              ? '🏠'
+                              : doc.type === 'identification'
+                              ? '🆔'
                               : '📄'}
                           </Text>
                           <Text className="text-base font-semibold text-neutral-900 flex-1">
@@ -187,7 +224,7 @@ export default function VaultScreen() {
                           </Text>
                         </View>
                         <Text className="text-sm text-neutral-600 font-body">
-                          {getDocumentTypeLabel(doc.type)} • {formatFileSize(doc.size_bytes)}
+                          {getDocumentTypeLabel(doc.type)} • {doc.files?.length || 0} archivo(s)
                         </Text>
                       </View>
 
@@ -313,32 +350,97 @@ export default function VaultScreen() {
                         </Text>
                       )}
 
-                      {/* Campos del documento */}
-                      {FIELD_TEMPLATES[doc.type]?.length > 0 && (
+                      {/* Campos del documento organizados por secciones */}
+                      {(() => {
+                        const sections = getSectionsForDocumentType(doc.type);
+                        if (sections) {
+                          return sections.map((section, sectionIdx) => (
+                            <View key={sectionIdx} className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
+                              <Text className="text-sm font-semibold text-neutral-700 mb-2">
+                                {section.emoji} {section.title}
+                              </Text>
+                              {section.fields.map((fieldName) => {
+                                const value = doc.fields?.[fieldName] || '';
+                                const label = FIELD_LABELS[fieldName] || fieldName;
+                                return (
+                                  <View key={fieldName} className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+                                    <View className="flex-1 mr-3">
+                                      <Text className="text-xs text-neutral-500">{label}</Text>
+                                      <Text className="text-sm text-neutral-800">{value || '(vacío)'}</Text>
+                                    </View>
+                                    {value && (
+                                      <TouchableOpacity
+                                        onPress={async () => {
+                                          await Clipboard.setStringAsync(value);
+                                          Alert.alert('Copiado', `${label} copiado`);
+                                        }}
+                                        className="bg-neutral-100 px-3 py-2 rounded"
+                                      >
+                                        <Text className="text-xs">📋</Text>
+                                      </TouchableOpacity>
+                                    )}
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          ));
+                        }
+                        // Fallback para tipos antiguos con plantilla plana
+                        if (FIELD_TEMPLATES[doc.type]?.length > 0) {
+                          return (
+                            <View className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
+                              <Text className="text-sm font-semibold text-neutral-700 mb-2">📋 Campos</Text>
+                              {FIELD_TEMPLATES[doc.type].map((fieldName) => {
+                                const value = doc.fields?.[fieldName] || '';
+                                return (
+                                  <View key={fieldName} className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+                                    <View className="flex-1 mr-3">
+                                      <Text className="text-xs text-neutral-500">{fieldName}</Text>
+                                      <Text className="text-sm text-neutral-800">{value || '(vacío)'}</Text>
+                                    </View>
+                                    {value && (
+                                      <TouchableOpacity
+                                        onPress={async () => {
+                                          await Clipboard.setStringAsync(value);
+                                          Alert.alert('Copiado', `${fieldName} copiado`);
+                                        }}
+                                        className="bg-neutral-100 px-3 py-2 rounded"
+                                      >
+                                        <Text className="text-xs">📋</Text>
+                                      </TouchableOpacity>
+                                    )}
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Campos personalizados (para documentos sin plantilla) */}
+                      {doc.fields && Object.keys(doc.fields).length > 0 && (!FIELD_TEMPLATES[doc.type] || FIELD_TEMPLATES[doc.type].length === 0) && (
                         <View className="mb-3 bg-white rounded-lg p-3 border border-neutral-200">
-                          <Text className="text-sm font-semibold text-neutral-700 mb-2">📋 Campos</Text>
-                          {FIELD_TEMPLATES[doc.type].map((fieldName) => {
-                            const value = doc.fields?.[fieldName] || '';
-                            return (
-                              <View key={fieldName} className="flex-row items-center justify-between py-2 border-b border-neutral-100">
-                                <View className="flex-1 mr-3">
-                                  <Text className="text-xs text-neutral-500">{fieldName}</Text>
-                                  <Text className="text-sm text-neutral-800">{value || '(vacío)'}</Text>
-                                </View>
-                                {value && (
-                                  <TouchableOpacity
-                                    onPress={async () => {
-                                      await Clipboard.setStringAsync(value);
-                                      Alert.alert('Copiado', `${fieldName} copiado`);
-                                    }}
-                                    className="bg-neutral-100 px-3 py-2 rounded"
-                                  >
-                                    <Text className="text-xs">📋</Text>
-                                  </TouchableOpacity>
-                                )}
+                          <Text className="text-sm font-semibold text-neutral-700 mb-2">📋 Campos Personalizados</Text>
+                          {Object.entries(doc.fields).map(([fieldName, value]) => (
+                            <View key={fieldName} className="flex-row items-center justify-between py-2 border-b border-neutral-100">
+                              <View className="flex-1 mr-3">
+                                <Text className="text-xs text-neutral-500">{fieldName}</Text>
+                                <Text className="text-sm text-neutral-800">{value || '(vacío)'}</Text>
                               </View>
-                            );
-                          })}
+                              {value && (
+                                <TouchableOpacity
+                                  onPress={async () => {
+                                    await Clipboard.setStringAsync(String(value));
+                                    Alert.alert('Copiado', `${fieldName} copiado`);
+                                  }}
+                                  className="bg-neutral-100 px-3 py-2 rounded"
+                                >
+                                  <Text className="text-xs">📋</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          ))}
                         </View>
                       )}
 
@@ -371,6 +473,42 @@ export default function VaultScreen() {
                                 <Text className="text-xs text-neutral-500">{formatFileSize(file.size_bytes)}</Text>
                               </View>
                             </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Sellos de Pasaporte (solo para passport) */}
+                      {doc.type === 'passport' && doc.fields?.stamps && Array.isArray(doc.fields.stamps) && doc.fields.stamps.length > 0 && (
+                        <View className="mb-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
+                          <Text className="text-sm font-semibold text-purple-700 mb-2">
+                            ✈️ Países Visitados ({new Set(doc.fields.stamps.map((s: any) => s.pais.toLowerCase().trim())).size}) • {doc.fields.stamps.length} sello{doc.fields.stamps.length !== 1 ? 's' : ''}
+                          </Text>
+                          {doc.fields.stamps.map((stamp: any, idx: number) => (
+                            <View key={idx} className="bg-white rounded-lg p-3 mb-2 border border-purple-100">
+                              <View className="flex-row items-center mb-1">
+                                <Text className="text-lg mr-2">{stamp.paisEmoji || '🌍'}</Text>
+                                <Text className="text-sm font-semibold text-neutral-900 flex-1">{stamp.pais}</Text>
+                                <Text className="text-xs text-purple-600 font-medium">
+                                  {stamp.tipoSello || 'entrada'}
+                                </Text>
+                              </View>
+                              <View className="flex-row items-center mt-1">
+                                <Text className="text-xs text-neutral-600">
+                                  📅 {stamp.fechaEntrada}
+                                  {stamp.fechaSalida && ` → ${stamp.fechaSalida}`}
+                                </Text>
+                              </View>
+                              {stamp.puestoFronterizo && (
+                                <Text className="text-xs text-neutral-500 mt-1">
+                                  🛃 {stamp.puestoFronterizo}
+                                </Text>
+                              )}
+                              {stamp.observaciones && (
+                                <Text className="text-xs text-neutral-500 mt-1 italic">
+                                  {stamp.observaciones}
+                                </Text>
+                              )}
+                            </View>
                           ))}
                         </View>
                       )}
@@ -468,7 +606,7 @@ export default function VaultScreen() {
       </View>
 
       {/* Modal de upload */}
-      <UploadDocumentModal
+      <UploadDocumentModalV2
         visible={uploadModalVisible}
         onClose={() => setUploadModalVisible(false)}
         onSuccess={() => reload()}
@@ -497,7 +635,14 @@ export default function VaultScreen() {
             setEditModalVisible(false);
             setSelectedDocForEdit(null);
           }}
-          onSuccess={() => reload()}
+          onSuccess={async () => {
+            await reload();
+            // Actualizar el documento seleccionado con los datos más recientes
+            const updatedDoc = documents.find(d => d.id === selectedDocForEdit.id);
+            if (updatedDoc) {
+              setSelectedDocForEdit(updatedDoc);
+            }
+          }}
         />
       )}
     </View>
