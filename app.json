@@ -5,16 +5,35 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "sento",
+    "intentFilters": [
+      {
+        "action": "VIEW",
+        "data": [
+          {
+            "scheme": "sento",
+            "host": "invite"
+          }
+        ],
+        "category": [
+          "BROWSABLE",
+          "DEFAULT"
+        ]
+      }
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "sento",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,18 +41,23 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.lilg8b.app_composer"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-font"
     ],
     "extra": {
       "supabaseUrl": "https://iybjzqtiispacfmmynsx.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5Ymp6cXRpaXNwYWNmbW15bnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMDczNDMsImV4cCI6MjA3NzU4MzM0M30.xxtALe4iH1bVQkmCxKrRXaWASbsFaDoCLBS0Os9J9V0"
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5Ymp6cXRpaXNwYWNmbW15bnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMDczNDMsImV4cCI6MjA3NzU4MzM0M30.xxtALe4iH1bVQkmCxKrRXaWASbsFaDoCLBS0Os9J9V0",
+      "router": {},
+      "eas": {
+        "projectId": "70ee626a-08f8-49fe-90ec-e8c132f76f6b"
+      }
     }
   }
 }
