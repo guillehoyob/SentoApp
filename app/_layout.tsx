@@ -12,6 +12,7 @@ import {
   PlayfairDisplay_700Bold_Italic,
 } from '@expo-google-fonts/playfair-display';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
+import { DevModeProvider } from '../src/contexts/DevModeContext';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -26,7 +27,7 @@ function RootLayoutNav() {
       const match = url.match(/sento:\/\/invite\/([^?]+)\?t=(.+)/);
       if (match) {
         const [, groupId, token] = match;
-        
+
         if (user) {
           // Usuario autenticado: ir directo a join
           router.push(`/(authenticated)/join?groupId=${groupId}&token=${token}`);
@@ -104,12 +105,12 @@ function RootLayoutNav() {
       <Stack.Screen name="auth/sign-up" />
       <Stack.Screen name="auth/callback" />
       <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="(authenticated)/join" 
-        options={{ 
+      <Stack.Screen
+        name="(authenticated)/join"
+        options={{
           headerShown: false,
-          presentation: 'modal' 
-        }} 
+          presentation: 'modal'
+        }}
       />
     </Stack>
   );
@@ -138,7 +139,9 @@ export default function RootLayout() {
 
   return (
     <GluestackUIProvider mode="light">
-      <RootLayoutNav />
+      <DevModeProvider>
+        <RootLayoutNav />
+      </DevModeProvider>
     </GluestackUIProvider>
   );
 }

@@ -1,12 +1,13 @@
-import { Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
-import { Button } from '../../src/components/Button';
+import { useDevMode } from '../../src/contexts/DevModeContext';
+import { DevPanel } from '../../src/views/development/DevPanel';
+import { ProductionHome } from '../../src/views/production/ProductionHome';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const router = useRouter();
+  const { isDevelopmentMode, toggleMode, loading: devModeLoading } = useDevMode();
 
   const handleSignOut = async () => {
     try {
@@ -16,25 +17,48 @@ export default function HomeScreen() {
     }
   };
 
+  if (devModeLoading) {
+    return (
+      <View className="flex-1 bg-background justify-center items-center">
+        <Text className="font-body text-neutral-600">Cargando...</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background">
-      {/* Header con logo y logout */}
+      {/* Header con logo, toggle y logout */}
       <View className="bg-card pt-[50px] pb-lg px-lg border-b border-neutral-100">
         <View className="flex-row justify-between items-center mb-sm">
           <Text className="font-display text-[32px] text-primary leading-[40px]">
             Sento
           </Text>
-          <TouchableOpacity 
-            onPress={handleSignOut}
-            className="px-md py-xs rounded-lg bg-danger/10"
-            activeOpacity={0.7}
-          >
-            <Text className="font-body-medium text-sm text-danger">
-              Salir
-            </Text>
-          </TouchableOpacity>
+
+          {/* Dev Mode Toggle */}
+          <View className="flex-row items-center gap-md">
+            <TouchableOpacity
+              onPress={toggleMode}
+              className={`px-md py-xs rounded-full ${isDevelopmentMode ? 'bg-purple-500' : 'bg-primary'
+                }`}
+              activeOpacity={0.7}
+            >
+              <Text className="font-body-medium text-xs text-white">
+                {isDevelopmentMode ? '🛠️ DEV' : '✨ PROD'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleSignOut}
+              className="px-md py-xs rounded-lg bg-danger/10"
+              activeOpacity={0.7}
+            >
+              <Text className="font-body-medium text-sm text-danger">
+                Salir
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        
+
         {user && (
           <View className="mt-sm">
             <Text className="font-body-semibold text-lg text-text-primary">
@@ -45,117 +69,20 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
+
+        {/* Mode indicator */}
+        <View className="mt-sm">
+          <Text className="font-body text-xs text-neutral-500">
+            {isDevelopmentMode
+              ? '🛠️ Modo Desarrollo - Todas las funciones disponibles'
+              : '✨ Modo Producción - Vista profesional'}
+          </Text>
+        </View>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
-        {/* Sección principal */}
-        <View className="mb-xl">
-          <Text className="font-display text-h2 text-text-primary mb-xs">
-            ¿Qué quieres hacer?
-          </Text>
-          <Text className="font-body text-base text-neutral-600">
-            Gestiona tus grupos y viajes
-          </Text>
-        </View>
+      {/* Content - Toggle between Dev and Production */}
+      {isDevelopmentMode ? <DevPanel /> : <ProductionHome />}
 
-        {/* Cards de acciones */}
-        <View className="gap-md">
-          <TouchableOpacity
-            className="bg-card rounded-2xl p-xl shadow-lg border-2 border-primary/20"
-            onPress={() => router.push('/(authenticated)/groups')}
-            activeOpacity={0.8}
-          >
-            <View className="flex-row items-center mb-sm">
-              <Text className="text-[32px] mr-md">👥</Text>
-              <Text className="font-body-semibold text-xl text-text-primary flex-1">
-                Mis Grupos
-              </Text>
-              <Text className="text-primary text-xl">→</Text>
-            </View>
-            <Text className="font-body text-base text-neutral-600">
-              Ver y gestionar tus grupos existentes
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="bg-primary rounded-2xl p-xl shadow-lg"
-            onPress={() => router.push('/(authenticated)/create-group')}
-            activeOpacity={0.8}
-          >
-            <View className="flex-row items-center mb-sm">
-              <Text className="text-[32px] mr-md">✈️</Text>
-              <Text className="font-body-semibold text-xl text-white flex-1">
-                Crear Grupo/Viaje
-              </Text>
-              <Text className="text-white text-xl">+</Text>
-            </View>
-            <Text className="font-body text-base text-white/90">
-              Organiza un nuevo viaje o grupo
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="bg-secondary rounded-2xl p-xl shadow-lg border-2 border-secondary/30"
-            onPress={() => router.push('/(authenticated)/vault')}
-            activeOpacity={0.8}
-          >
-            <View className="flex-row items-center mb-sm">
-              <Text className="text-[32px] mr-md">🔐</Text>
-              <Text className="font-body-semibold text-xl text-white flex-1">
-                Mi Vault
-              </Text>
-              <Text className="text-white text-xl">→</Text>
-            </View>
-            <Text className="font-body text-base text-white/90">
-              Gestiona tus documentos personales
-            </Text>
-          </TouchableOpacity>
-
-          {/* Botón Gluestack Demo */}
-          <TouchableOpacity
-            className="bg-purple-500 rounded-2xl p-xl shadow-lg"
-            onPress={() => router.push('/(authenticated)/gluestack-demo')}
-            activeOpacity={0.8}
-          >
-            <View className="flex-row items-center mb-sm">
-              <Text className="text-[32px] mr-md">🎨</Text>
-              <Text className="font-body-semibold text-xl text-white flex-1">
-                Gluestack UI Demo
-              </Text>
-              <Text className="text-white text-xl">→</Text>
-            </View>
-            <Text className="font-body text-base text-white/90">
-              Ver componentes de NativeWind v4
-            </Text>
-          </TouchableOpacity>
-
-          {/* Botón de testing (solo desarrollo) */}
-          <TouchableOpacity
-            className="bg-neutral-200 rounded-2xl p-xl border-2 border-neutral-300 border-dashed"
-            onPress={() => router.push('/(authenticated)/test-join')}
-            activeOpacity={0.8}
-          >
-            <View className="flex-row items-center mb-sm">
-              <Text className="text-[32px] mr-md">🧪</Text>
-              <Text className="font-body-semibold text-xl text-neutral-700 flex-1">
-                Test: Unirse a Grupo
-              </Text>
-              <Text className="text-neutral-500 text-xl">→</Text>
-            </View>
-            <Text className="font-body text-base text-neutral-600">
-              Pegar groupId + token para testing
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Info adicional */}
-        <View className="mt-3xl p-lg bg-neutral-50 rounded-xl border border-neutral-200">
-          <Text className="font-body-medium text-sm text-neutral-600 text-center">
-            💡 Invita a tus amigos y gestiona gastos compartidos
-          </Text>
-        </View>
-      </ScrollView>
-      
       <StatusBar style="auto" />
     </View>
   );
